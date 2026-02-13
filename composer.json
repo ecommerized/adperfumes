@@ -8,7 +8,7 @@
     "require": {
         "php": "^8.2",
         "filament/filament": "^3.2",
-        "google/apiclient": "^2.0",
+        "firebase/php-jwt": "^6.0|^7.0",
         "laravel/framework": "^11.31",
         "laravel/tinker": "^2.9"
     },
@@ -39,12 +39,8 @@
             "@php artisan package:discover --ansi",
             "@php artisan filament:upgrade"
         ],
-        "post-install-cmd": [
-            "Google\\Task\\Composer::cleanup"
-        ],
         "post-update-cmd": [
-            "@php artisan vendor:publish --tag=laravel-assets --ansi --force",
-            "Google\\Task\\Composer::cleanup"
+            "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
         ],
         "post-root-package-install": [
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
@@ -62,10 +58,7 @@
     "extra": {
         "laravel": {
             "dont-discover": []
-        },
-        "google/apiclient-services": [
-            "SearchConsole"
-        ]
+        }
     },
     "config": {
         "optimize-autoloader": true,

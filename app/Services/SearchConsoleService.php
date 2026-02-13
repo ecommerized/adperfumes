@@ -2,15 +2,12 @@
 
 namespace App\Services;
 
-use Google\Client;
-use Google\Service\SearchConsole;
-use Google\Service\SearchConsole\SearchAnalyticsQueryRequest;
+use Firebase\JWT\JWT;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 
 class SearchConsoleService
 {
-    protected ?Client $client = null;
-    protected ?SearchConsole $service = null;
     protected SettingsService $settings;
 
     public function __construct(SettingsService $settings)
@@ -30,33 +27,47 @@ class SearchConsoleService
         return $this->settings->get('gsc_site_url');
     }
 
-    protected function getService(): SearchConsole
+    protected function getAccessToken(): string
     {
-        if ($this->service) {
-            return $this->service;
-        }
+        return Cache::remember('gsc_access_token', 3500, function () {
+            $jsonPath = $this->settings->get('gsc_service_account_json');
+            $credentials = json_decode(file_get_contents(storage_path("app/{$jsonPath}")), true);
 
-        $jsonPath = $this->settings->get('gsc_service_account_json');
-        $fullPath = storage_path("app/{$jsonPath}");
+            $now = time();
+            $payload = [
+                'iss' => $credentials['client_email'],
+                'scope' => 'https://www.googleapis.com/auth/webmasters.readonly',
+                'aud' => 'https://oauth2.googleapis.com/token',
+                'iat' => $now,
+                'exp' => $now + 3600,
+            ];
 
-        $this->client = new Client();
-        $this->client->setAuthConfig($fullPath);
-        $this->client->addScope(SearchConsole::WEBMASTERS_READONLY);
+            $jwt = JWT::encode($payload, $credentials['private_key'], 'RS256');
 
-        $this->service = new SearchConsole($this->client);
+            $response = Http::asForm()->post('https://oauth2.googleapis.com/token', [
+                'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+                'assertion' => $jwt,
+            ]);
 
-        return $this->service;
+            return $response->json('access_token');
+        });
     }
 
     public function testConnection(): array
     {
         try {
-            $service = $this->getService();
-            $sites = $service->sites->listSites();
-            $siteList = [];
+            $token = $this->getAccessToken();
 
-            foreach ($sites->getSiteEntry() as $site) {
-                $siteList[] = $site->getSiteUrl();
+            $response = Http::withToken($token)
+                ->get('https://www.googleapis.com/webmasters/v3/sites');
+
+            if ($response->failed()) {
+                return ['success' => false, 'error' => $response->json('error.message', 'Unknown error')];
+            }
+
+            $siteList = [];
+            foreach ($response->json('siteEntry', []) as $site) {
+                $siteList[] = $site['siteUrl'];
             }
 
             return ['success' => true, 'sites' => $siteList];
@@ -70,16 +81,21 @@ class SearchConsoleService
         $cacheKey = "gsc_summary_{$startDate}_{$endDate}";
 
         return Cache::remember($cacheKey, 1800, function () use ($startDate, $endDate) {
-            $service = $this->getService();
-            $siteUrl = $this->getSiteUrl();
-
-            $request = new SearchAnalyticsQueryRequest();
-            $request->setStartDate($startDate);
-            $request->setEndDate($endDate);
-
             try {
-                $response = $service->searchanalytics->query($siteUrl, $request);
-                $rows = $response->getRows();
+                $token = $this->getAccessToken();
+                $siteUrl = $this->getSiteUrl();
+
+                $response = Http::withToken($token)
+                    ->post("https://www.googleapis.com/webmasters/v3/sites/" . urlencode($siteUrl) . "/searchAnalytics/query", [
+                        'startDate' => $startDate,
+                        'endDate' => $endDate,
+                    ]);
+
+                if ($response->failed()) {
+                    return ['error' => $response->json('error.message', 'API request failed')];
+                }
+
+                $rows = $response->json('rows', []);
 
                 if (empty($rows)) {
                     return [
@@ -93,10 +109,10 @@ class SearchConsoleService
                 $row = $rows[0];
 
                 return [
-                    'clicks' => $row->getClicks(),
-                    'impressions' => $row->getImpressions(),
-                    'ctr' => round($row->getCtr() * 100, 2),
-                    'position' => round($row->getPosition(), 1),
+                    'clicks' => $row['clicks'] ?? 0,
+                    'impressions' => $row['impressions'] ?? 0,
+                    'ctr' => round(($row['ctr'] ?? 0) * 100, 2),
+                    'position' => round($row['position'] ?? 0, 1),
                 ];
             } catch (\Exception $e) {
                 return ['error' => $e->getMessage()];
@@ -113,26 +129,30 @@ class SearchConsoleService
         $cacheKey = "gsc_analytics_{$dimension}_{$startDate}_{$endDate}_{$rowLimit}";
 
         return Cache::remember($cacheKey, 1800, function () use ($startDate, $endDate, $dimension, $rowLimit) {
-            $service = $this->getService();
-            $siteUrl = $this->getSiteUrl();
-
-            $request = new SearchAnalyticsQueryRequest();
-            $request->setStartDate($startDate);
-            $request->setEndDate($endDate);
-            $request->setDimensions([$dimension]);
-            $request->setRowLimit($rowLimit);
-
             try {
-                $response = $service->searchanalytics->query($siteUrl, $request);
-                $rows = [];
+                $token = $this->getAccessToken();
+                $siteUrl = $this->getSiteUrl();
 
-                foreach ($response->getRows() as $row) {
+                $response = Http::withToken($token)
+                    ->post("https://www.googleapis.com/webmasters/v3/sites/" . urlencode($siteUrl) . "/searchAnalytics/query", [
+                        'startDate' => $startDate,
+                        'endDate' => $endDate,
+                        'dimensions' => [$dimension],
+                        'rowLimit' => $rowLimit,
+                    ]);
+
+                if ($response->failed()) {
+                    return ['error' => $response->json('error.message', 'API request failed')];
+                }
+
+                $rows = [];
+                foreach ($response->json('rows', []) as $row) {
                     $rows[] = [
-                        'keys' => $row->getKeys(),
-                        'clicks' => $row->getClicks(),
-                        'impressions' => $row->getImpressions(),
-                        'ctr' => round($row->getCtr() * 100, 2),
-                        'position' => round($row->getPosition(), 1),
+                        'keys' => $row['keys'] ?? [],
+                        'clicks' => $row['clicks'] ?? 0,
+                        'impressions' => $row['impressions'] ?? 0,
+                        'ctr' => round(($row['ctr'] ?? 0) * 100, 2),
+                        'position' => round($row['position'] ?? 0, 1),
                     ];
                 }
 
