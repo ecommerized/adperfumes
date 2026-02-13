@@ -1,0 +1,297 @@
+@extends('layouts.app')
+
+@section('title', $product->name . ' - AD Perfumes')
+
+@section('content')
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    <nav class="text-sm mb-8">
+        <ol class="flex items-center space-x-3 text-brand-gray">
+            <li>
+                <a href="{{ route('home') }}" class="hover:text-brand-primary transition flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+                    </svg>
+                    Home
+                </a>
+            </li>
+            <li><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg></li>
+            <li><a href="{{ route('products.index') }}" class="hover:text-brand-primary transition">Products</a></li>
+            <li><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg></li>
+            <li class="text-brand-dark font-medium">{{ Str::limit($product->name, 50) }}</li>
+        </ol>
+    </nav>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
+        <!-- Product Image -->
+        <div class="sticky top-24 self-start">
+            <div class="bg-gradient-to-br from-brand-light via-gray-50 to-brand-primary/5 rounded-2xl aspect-square flex items-center justify-center relative overflow-hidden group border border-gray-100 shadow-lg">
+                <svg class="w-64 h-64 text-brand-primary/20 group-hover:scale-105 transition-transform duration-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="0.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                </svg>
+
+                <!-- Badges -->
+                @if($product->is_new)
+                    <div class="absolute top-6 left-6">
+                        <span class="bg-brand-primary text-white text-sm font-bold px-4 py-2 rounded-full shadow-lg">NEW ARRIVAL</span>
+                    </div>
+                @endif
+                @if($product->on_sale)
+                    <div class="absolute top-6 right-6">
+                        <span class="bg-red-500 text-white text-sm font-bold px-4 py-2 rounded-full shadow-lg">ON SALE</span>
+                    </div>
+                @endif
+            </div>
+        </div>
+
+        <!-- Product Details -->
+        <div class="space-y-6">
+            <!-- Brand -->
+            <div>
+                <a href="{{ route('products.byBrand', $product->brand->slug) }}" class="inline-flex items-center text-brand-primary hover:text-green-700 font-bold text-sm uppercase tracking-wider mb-3 transition group">
+                    {{ $product->brand->name }}
+                    <svg class="w-4 h-4 ml-1 group-hover:translate-x-1 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </a>
+            </div>
+
+            <!-- Product Name -->
+            <h1 class="text-4xl lg:text-5xl font-bold text-brand-dark leading-tight">{{ $product->name }}</h1>
+
+            <!-- Price & Stock -->
+            <div class="flex items-center space-x-4 py-4 border-y border-gray-200">
+                <div>
+                    @if($product->on_sale && $product->original_price)
+                        <p class="text-lg text-brand-gray line-through">AED {{ number_format($product->original_price, 2) }}</p>
+                        <p class="text-4xl font-bold text-brand-primary">AED {{ number_format($product->price, 2) }}</p>
+                    @else
+                        <p class="text-4xl font-bold text-brand-dark">AED {{ number_format($product->price, 2) }}</p>
+                    @endif
+                </div>
+                <div class="h-12 w-px bg-gray-300"></div>
+                <div>
+                    @if($product->stock > 0)
+                        <div class="flex items-center text-green-600">
+                            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                            <div>
+                                <p class="font-semibold">In Stock</p>
+                                <p class="text-sm text-brand-gray">{{ $product->stock }} available</p>
+                            </div>
+                        </div>
+                    @else
+                        <div class="flex items-center text-red-600">
+                            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                            </svg>
+                            <p class="font-semibold">Out of Stock</p>
+                        </div>
+                    @endif
+                </div>
+            </div>
+
+            <!-- Description -->
+            <div class="prose prose-lg max-w-none">
+                <h2 class="text-xl font-bold text-brand-dark mb-3">About This Fragrance</h2>
+                <p class="text-brand-gray leading-relaxed">{{ $product->description }}</p>
+            </div>
+
+            <!-- Fragrance Notes -->
+            <div class="bg-gradient-to-br from-brand-light to-white p-8 rounded-2xl border border-gray-200 shadow-sm">
+                <h2 class="text-2xl font-bold text-brand-dark mb-6 flex items-center">
+                    <svg class="w-6 h-6 mr-3 text-brand-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                    </svg>
+                    Fragrance Pyramid
+                </h2>
+
+                <div class="space-y-6">
+                    <!-- Top Notes -->
+                    @if($product->topNotes->count() > 0)
+                        <div class="relative pl-8">
+                            <div class="absolute left-0 top-1 w-6 h-6 rounded-full bg-brand-primary/10 flex items-center justify-center">
+                                <div class="w-3 h-3 rounded-full bg-brand-primary"></div>
+                            </div>
+                            <h3 class="text-sm font-bold text-brand-dark uppercase tracking-wider mb-3">Top Notes</h3>
+                            <div class="flex flex-wrap gap-2">
+                                @foreach($product->topNotes as $note)
+                                    <span class="bg-white text-brand-dark px-4 py-2 rounded-lg text-sm border-2 border-brand-primary/20 hover:border-brand-primary transition font-medium shadow-sm">
+                                        {{ $note->name }}
+                                    </span>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
+                    <!-- Middle Notes -->
+                    @if($product->middleNotes->count() > 0)
+                        <div class="relative pl-8">
+                            <div class="absolute left-0 top-1 w-6 h-6 rounded-full bg-brand-primary/10 flex items-center justify-center">
+                                <div class="w-3 h-3 rounded-full bg-brand-primary"></div>
+                            </div>
+                            <h3 class="text-sm font-bold text-brand-dark uppercase tracking-wider mb-3">Heart Notes</h3>
+                            <div class="flex flex-wrap gap-2">
+                                @foreach($product->middleNotes as $note)
+                                    <span class="bg-white text-brand-dark px-4 py-2 rounded-lg text-sm border-2 border-brand-primary/20 hover:border-brand-primary transition font-medium shadow-sm">
+                                        {{ $note->name }}
+                                    </span>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
+                    <!-- Base Notes -->
+                    @if($product->baseNotes->count() > 0)
+                        <div class="relative pl-8">
+                            <div class="absolute left-0 top-1 w-6 h-6 rounded-full bg-brand-primary/10 flex items-center justify-center">
+                                <div class="w-3 h-3 rounded-full bg-brand-primary"></div>
+                            </div>
+                            <h3 class="text-sm font-bold text-brand-dark uppercase tracking-wider mb-3">Base Notes</h3>
+                            <div class="flex flex-wrap gap-2">
+                                @foreach($product->baseNotes as $note)
+                                    <span class="bg-white text-brand-dark px-4 py-2 rounded-lg text-sm border-2 border-brand-primary/20 hover:border-brand-primary transition font-medium shadow-sm">
+                                        {{ $note->name }}
+                                    </span>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+                </div>
+            </div>
+
+            <!-- Main Accords -->
+            @if($product->accords->count() > 0)
+                <div class="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
+                    <h2 class="text-2xl font-bold text-brand-dark mb-6">Main Accords</h2>
+                    <div class="space-y-4">
+                        @foreach($product->accords as $accord)
+                            <div>
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="font-bold text-brand-dark">{{ $accord->name }}</span>
+                                    @if($accord->pivot->percentage)
+                                        <span class="text-sm font-semibold text-brand-primary bg-brand-primary/10 px-3 py-1 rounded-full">
+                                            {{ $accord->pivot->percentage }}%
+                                        </span>
+                                    @endif
+                                </div>
+                                @if($accord->pivot->percentage)
+                                    <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                                        <div class="bg-gradient-to-r from-brand-primary to-green-700 h-3 rounded-full transition-all duration-1000 ease-out shadow-inner" style="width: {{ $accord->pivot->percentage }}%"></div>
+                                    </div>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
+            <!-- Add to Cart -->
+            <div class="bg-gradient-to-r from-brand-primary/5 to-brand-light p-8 rounded-2xl border-2 border-brand-primary/20">
+                <form action="{{ route('cart.add') }}" method="POST" class="space-y-6">
+                    @csrf
+                    <input type="hidden" name="product_id" value="{{ $product->id }}">
+
+                    <div>
+                        <label for="quantity" class="block text-sm font-bold text-brand-dark mb-3 uppercase tracking-wider">Quantity</label>
+                        <div class="flex items-center space-x-4">
+                            <input type="number" name="quantity" id="quantity" value="1" min="1" max="{{ $product->stock }}"
+                                   class="w-32 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-brand-primary focus:border-brand-primary text-lg font-semibold text-center py-3">
+                            @if($product->stock > 0)
+                                <span class="text-sm text-brand-gray">Max: {{ $product->stock }}</span>
+                            @endif
+                        </div>
+                    </div>
+
+                    <button type="submit"
+                            @if($product->stock == 0) disabled @endif
+                            class="w-full bg-brand-primary text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-green-700 transition-all duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-lg hover:shadow-2xl hover:scale-105 flex items-center justify-center group">
+                        @if($product->stock > 0)
+                            <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                            </svg>
+                            Add to Cart
+                            <svg class="w-5 h-5 ml-2 group-hover:translate-x-1 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+                            </svg>
+                        @else
+                            <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                            Out of Stock
+                        @endif
+                    </button>
+
+                    <!-- Trust Badges -->
+                    <div class="grid grid-cols-2 gap-4 pt-6 border-t border-gray-200">
+                        <div class="flex items-center text-sm">
+                            <svg class="w-5 h-5 text-brand-primary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span class="text-brand-gray font-medium">100% Authentic</span>
+                        </div>
+                        <div class="flex items-center text-sm">
+                            <svg class="w-5 h-5 text-brand-primary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+                            </svg>
+                            <span class="text-brand-gray font-medium">Free Shipping</span>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Related Products -->
+    @if($relatedProducts->count() > 0)
+        <div class="mt-24 border-t border-gray-200 pt-16">
+            <div class="flex justify-between items-center mb-10">
+                <div>
+                    <h2 class="text-3xl font-bold text-brand-dark mb-2">More from {{ $product->brand->name }}</h2>
+                    <p class="text-brand-gray">Explore other fragrances from this prestigious brand</p>
+                </div>
+                <a href="{{ route('products.byBrand', $product->brand->slug) }}" class="hidden md:inline-flex items-center text-brand-primary hover:text-green-700 font-semibold transition group">
+                    View All
+                    <svg class="w-5 h-5 ml-2 group-hover:translate-x-1 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+                    </svg>
+                </a>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                @foreach($relatedProducts as $related)
+                    <div class="group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-300 border border-gray-100">
+                        <a href="{{ route('products.show', $related->slug) }}" class="block relative overflow-hidden">
+                            <div class="aspect-[3/4] bg-gradient-to-br from-brand-light via-gray-50 to-brand-primary/5 flex items-center justify-center">
+                                <svg class="w-20 h-20 text-brand-primary/20 group-hover:scale-110 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                                </svg>
+                            </div>
+                        </a>
+                        <div class="p-5">
+                            <h3 class="text-base font-bold text-brand-dark mb-3 line-clamp-2 min-h-[3rem]">
+                                <a href="{{ route('products.show', $related->slug) }}" class="hover:text-brand-primary transition">
+                                    {{ $related->name }}
+                                </a>
+                            </h3>
+                            <p class="text-lg font-bold text-brand-dark">
+                                AED {{ number_format($related->price, 2) }}
+                            </p>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="mt-8 text-center md:hidden">
+                <a href="{{ route('products.byBrand', $product->brand->slug) }}" class="inline-flex items-center text-brand-primary hover:text-green-700 font-semibold transition group">
+                    View All {{ $product->brand->name }} Products
+                    <svg class="w-5 h-5 ml-2 group-hover:translate-x-1 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    @endif
+</div>
+@endsection

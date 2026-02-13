@@ -1,0 +1,208 @@
+@extends('layouts.app')
+
+@section('title', 'AD Perfumes - Luxury Fragrances in UAE')
+
+@section('content')
+<!-- Hero Section -->
+<section class="relative bg-gradient-to-br from-brand-light via-white to-gray-50 overflow-hidden">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <!-- Hero Content -->
+            <div>
+                <p class="text-brand-primary text-sm font-semibold tracking-wider uppercase mb-4">Authentic Luxury Fragrances</p>
+                <h1 class="text-5xl md:text-6xl font-bold text-brand-dark mb-6 leading-tight">
+                    Discover Your<br>
+                    <span class="text-brand-primary">Signature Scent</span>
+                </h1>
+                <p class="text-lg text-brand-gray mb-8 leading-relaxed max-w-lg">
+                    Explore our curated collection of authentic perfumes from world-renowned brands.
+                    Free shipping across UAE on orders over AED 300.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <a href="{{ route('products.index') }}" class="inline-flex items-center justify-center bg-brand-primary text-white px-8 py-4 rounded-lg font-semibold hover:bg-green-700 transition shadow-lg hover:shadow-xl">
+                        Shop All Perfumes
+                        <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+                        </svg>
+                    </a>
+                    <a href="{{ route('products.index') }}" class="inline-flex items-center justify-center border-2 border-brand-dark text-brand-dark px-8 py-4 rounded-lg font-semibold hover:bg-brand-dark hover:text-white transition">
+                        New Arrivals
+                    </a>
+                </div>
+            </div>
+
+            <!-- Hero Visual -->
+            <div class="relative hidden lg:block">
+                <div class="relative w-full h-96 bg-gradient-to-br from-brand-primary/10 to-brand-primary/5 rounded-2xl flex items-center justify-center">
+                    <svg class="w-48 h-48 text-brand-primary opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="0.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                    </svg>
+                </div>
+                <!-- Floating badges -->
+                <div class="absolute top-8 -right-4 bg-white px-6 py-4 rounded-lg shadow-xl">
+                    <p class="text-3xl font-bold text-brand-primary">500+</p>
+                    <p class="text-sm text-brand-gray">Premium Fragrances</p>
+                </div>
+                <div class="absolute bottom-8 -left-4 bg-white px-6 py-4 rounded-lg shadow-xl">
+                    <p class="text-3xl font-bold text-brand-primary">100%</p>
+                    <p class="text-sm text-brand-gray">Authentic Products</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Shop by Brand -->
+@if($brands->count() > 0)
+<section class="bg-white py-20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+            <h2 class="text-4xl font-bold text-brand-dark mb-3">Shop by Brand</h2>
+            <p class="text-brand-gray text-lg">Discover fragrances from the world's most prestigious perfume houses</p>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            @foreach($brands as $brand)
+                <a href="{{ route('products.byBrand', $brand->slug) }}" class="group bg-brand-light border border-gray-200 p-8 rounded-xl hover:border-brand-primary hover:shadow-lg transition-all duration-300 text-center">
+                    <h3 class="text-xl font-bold text-brand-dark group-hover:text-brand-primary transition mb-2">{{ $brand->name }}</h3>
+                    <p class="text-sm text-brand-gray">{{ $brand->products_count }} {{ Str::plural('fragrance', $brand->products_count) }}</p>
+                    <div class="mt-4 inline-flex items-center text-brand-primary text-sm font-semibold opacity-0 group-hover:opacity-100 transition">
+                        Explore
+                        <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </div>
+                </a>
+            @endforeach
+        </div>
+    </div>
+</section>
+@endif
+
+<!-- Featured Products -->
+<section class="bg-gradient-to-b from-white to-brand-light py-20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-12">
+            <div>
+                <h2 class="text-4xl font-bold text-brand-dark mb-2">Featured Fragrances</h2>
+                <p class="text-brand-gray">Curated selections from our luxury collection</p>
+            </div>
+            <a href="{{ route('products.index') }}" class="mt-4 md:mt-0 inline-flex items-center text-brand-primary hover:text-green-700 font-semibold transition group">
+                View All Products
+                <svg class="w-5 h-5 ml-2 group-hover:translate-x-1 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+                </svg>
+            </a>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            @foreach($products as $product)
+                <div class="group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-300 border border-gray-100">
+                    <!-- Product Image -->
+                    <a href="{{ route('products.show', $product->slug) }}" class="block relative overflow-hidden">
+                        <div class="aspect-[3/4] bg-gradient-to-br from-brand-light via-gray-50 to-brand-primary/5 flex items-center justify-center relative">
+                            <svg class="w-24 h-24 text-brand-primary/20 group-hover:scale-110 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                            </svg>
+
+                            <!-- Badges -->
+                            @if($product->is_new)
+                                <div class="absolute top-3 left-3">
+                                    <span class="bg-brand-primary text-white text-xs font-bold px-3 py-1 rounded-full">NEW</span>
+                                </div>
+                            @endif
+                            @if($product->on_sale)
+                                <div class="absolute top-3 right-3">
+                                    <span class="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">SALE</span>
+                                </div>
+                            @endif
+                        </div>
+                    </a>
+
+                    <div class="p-5">
+                        <!-- Brand -->
+                        <p class="text-xs text-brand-gray uppercase tracking-wider mb-2 font-semibold">{{ $product->brand->name }}</p>
+
+                        <!-- Product Name -->
+                        <h3 class="text-base font-bold text-brand-dark mb-3 line-clamp-2 min-h-[3rem]">
+                            <a href="{{ route('products.show', $product->slug) }}" class="hover:text-brand-primary transition">
+                                {{ $product->name }}
+                            </a>
+                        </h3>
+
+                        <!-- Accords -->
+                        @if($product->accords->count() > 0)
+                            <div class="flex flex-wrap gap-1 mb-4">
+                                @foreach($product->accords->take(2) as $accord)
+                                    <span class="text-xs bg-brand-primary/10 text-brand-primary px-2 py-1 rounded-md font-medium">
+                                        {{ $accord->name }}
+                                    </span>
+                                @endforeach
+                            </div>
+                        @endif
+
+                        <!-- Price & Actions -->
+                        <div class="flex items-center justify-between pt-4 border-t border-gray-100">
+                            <div>
+                                @if($product->on_sale && $product->original_price)
+                                    <p class="text-xs text-brand-gray line-through">AED {{ number_format($product->original_price, 2) }}</p>
+                                    <p class="text-lg font-bold text-brand-primary">AED {{ number_format($product->price, 2) }}</p>
+                                @else
+                                    <p class="text-lg font-bold text-brand-dark">AED {{ number_format($product->price, 2) }}</p>
+                                @endif
+                            </div>
+
+                            <!-- Add to Cart Form -->
+                            <form action="{{ route('cart.add') }}" method="POST">
+                                @csrf
+                                <input type="hidden" name="product_id" value="{{ $product->id }}">
+                                <input type="hidden" name="quantity" value="1">
+                                <button type="submit" class="bg-brand-primary text-white p-2.5 rounded-lg hover:bg-green-700 transition shadow-md hover:shadow-lg group">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </div>
+</section>
+
+<!-- Trust Indicators -->
+<section class="bg-brand-dark text-white py-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
+            <div class="flex flex-col items-center">
+                <svg class="w-12 h-12 text-brand-primary mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <h3 class="text-lg font-bold mb-2">100% Authentic</h3>
+                <p class="text-brand-gray text-sm">Guaranteed genuine products</p>
+            </div>
+            <div class="flex flex-col items-center">
+                <svg class="w-12 h-12 text-brand-primary mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+                </svg>
+                <h3 class="text-lg font-bold mb-2">Free Shipping</h3>
+                <p class="text-brand-gray text-sm">On orders over AED 300</p>
+            </div>
+            <div class="flex flex-col items-center">
+                <svg class="w-12 h-12 text-brand-primary mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <h3 class="text-lg font-bold mb-2">Fast Delivery</h3>
+                <p class="text-brand-gray text-sm">2-3 business days across UAE</p>
+            </div>
+            <div class="flex flex-col items-center">
+                <svg class="w-12 h-12 text-brand-primary mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                </svg>
+                <h3 class="text-lg font-bold mb-2">Secure Payment</h3>
+                <p class="text-brand-gray text-sm">Multiple payment options</p>
+            </div>
+        </div>
+    </div>
+</section>
+@endsection
