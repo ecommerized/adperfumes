@@ -152,6 +152,7 @@ class SocialMediaService
 
     /**
      * Create a branded social media image using actual product image.
+     * AdCreative.ai-style with text overlays, prices, and CTAs.
      */
     protected function createProductImageDesign(string $type, array $context, int $width = 1080, int $height = 1080, string $sizeType = 'post'): ?string
     {
@@ -176,6 +177,9 @@ class SocialMediaService
                     return null;
                 }
             }
+
+            // Choose design template based on type
+            $template = $this->chooseTemplate($type, $context);
 
             // Create canvas with specified dimensions
             $canvas = imagecreatetruecolor($width, $height);
@@ -283,22 +287,8 @@ class SocialMediaService
 
             imagedestroy($productImg);
 
-            // Add decorative elements based on post type
-            if ($type === 'offer' && !empty($context['discount_value'])) {
-                // Add discount badge (top-right corner, scaled to canvas)
-                $badgeSize = (int)(min($width, $height) * 0.14);
-                $badgeX = $width - $badgeSize - 50;
-                $badgeY = ($height > $width) ? (int)($height * 0.05) : 50;
-
-                // Draw golden circle badge
-                imagefilledellipse($canvas, $badgeX + ($badgeSize / 2), $badgeY + ($badgeSize / 2), $badgeSize, $badgeSize, $gold);
-                imageellipse($canvas, $badgeX + ($badgeSize / 2), $badgeY + ($badgeSize / 2), $badgeSize, $badgeSize, $ivory);
-
-                // Add discount text (simplified - would need GD font)
-                $discountText = $context['discount_value'];
-                imagestring($canvas, 5, $badgeX + 30, $badgeY + 60, strtoupper(substr($discountText, 0, 10)), $black);
-                imagestring($canvas, 5, $badgeX + 45, $badgeY + 80, 'OFF', $black);
-            }
+            // Add professional text overlays and design elements
+            $this->addTextOverlays($canvas, $type, $context, $width, $height, $template);
 
             // Add elegant golden frame border (all sides)
             $borderThickness = 8;
@@ -353,6 +343,415 @@ class SocialMediaService
             Log::error('SocialMediaService: Failed to create product image design', ['message' => $e->getMessage()]);
             return null;
         }
+    }
+
+    /**
+     * Choose design template based on post type and context.
+     */
+    protected function chooseTemplate(string $type, array $context): string
+    {
+        $templates = match($type) {
+            'product_promo' => ['premium', 'minimal', 'bold'],
+            'offer' => ['badge', 'urgency', 'sale'],
+            'brand_story' => ['elegant', 'heritage', 'showcase'],
+            default => ['premium'],
+        };
+
+        return $templates[array_rand($templates)];
+    }
+
+    /**
+     * Get TTF font path. Uses Windows system fonts as primary, custom fonts as fallback.
+     */
+    protected function getFont(string $name = 'serif-bold'): ?string
+    {
+        // Windows system fonts (elegant choices)
+        $systemFonts = [
+            'serif-bold' => 'C:/Windows/Fonts/georgiab.ttf',       // Georgia Bold (elegant serif)
+            'serif-semibold' => 'C:/Windows/Fonts/georgia.ttf',     // Georgia Regular
+            'sans-bold' => 'C:/Windows/Fonts/calibrib.ttf',         // Calibri Bold (clean sans)
+            'sans-semibold' => 'C:/Windows/Fonts/calibri.ttf',      // Calibri Regular
+        ];
+
+        // Try system font first (most reliable)
+        $systemPath = $systemFonts[$name] ?? $systemFonts['serif-bold'];
+        if (file_exists($systemPath)) {
+            return $systemPath;
+        }
+
+        // Custom fonts fallback
+        $customFonts = [
+            'serif-bold' => 'CormorantGaramond-Bold.ttf',
+            'serif-semibold' => 'CormorantGaramond-SemiBold.ttf',
+            'sans-bold' => 'Montserrat-Bold.ttf',
+            'sans-semibold' => 'Montserrat-SemiBold.ttf',
+        ];
+
+        $customPath = storage_path('app/fonts/' . ($customFonts[$name] ?? ''));
+        if (file_exists($customPath) && filesize($customPath) > 1000) {
+            return $customPath;
+        }
+
+        Log::warning('SocialMediaService: No font found', ['name' => $name]);
+        return null;
+    }
+
+    /**
+     * Add professional text overlays (product name, price, CTA, badges).
+     */
+    protected function addTextOverlays($canvas, string $type, array $context, int $width, int $height, string $template): void
+    {
+        // Brand colors
+        $gold = imagecolorallocate($canvas, 201, 169, 110);
+        $black = imagecolorallocate($canvas, 10, 10, 10);
+        $ivory = imagecolorallocate($canvas, 250, 250, 248);
+        $white = imagecolorallocate($canvas, 255, 255, 255);
+        $darkGold = imagecolorallocate($canvas, 160, 130, 70);
+        $red = imagecolorallocate($canvas, 200, 40, 40);
+
+        $isStory = $height > $width;
+
+        // Add promotional badge for offers
+        if ($type === 'offer' && !empty($context['discount_value'])) {
+            $this->addDiscountBadge($canvas, $context['discount_value'], $width, $height, $isStory);
+        }
+
+        // Add product name overlay (top section)
+        if (!empty($context['product_name'])) {
+            $this->addProductNameOverlay($canvas, $context['product_name'], $width, $height, $isStory, $template);
+        }
+
+        // Add price display (bottom section)
+        if (!empty($context['price'])) {
+            $this->addPriceDisplay($canvas, $context, $width, $height, $isStory, $type);
+        }
+
+        // Add CTA button
+        $cta = $this->getCTA($type, $context);
+        if ($cta) {
+            $this->addCTAButton($canvas, $cta, $width, $height, $isStory);
+        }
+
+        // Add promotional sticker for special cases
+        if ($type === 'product_promo' && !empty($context['on_sale'])) {
+            $this->addCornerSticker($canvas, 'SALE', $width, $height, $red);
+        }
+
+        // Add brand name "AD Perfumes" watermark
+        $this->addBrandWatermark($canvas, $width, $height, $isStory);
+    }
+
+    /**
+     * Add "AD Perfumes" brand watermark text on the image.
+     */
+    protected function addBrandWatermark($canvas, int $width, int $height, bool $isStory): void
+    {
+        $gold = imagecolorallocate($canvas, 201, 169, 110);
+        $goldShadow = imagecolorallocatealpha($canvas, 0, 0, 0, 60);
+
+        $siteName = $this->siteConfig['name'] ?? 'AD Perfumes';
+        $font = $this->getFont('serif-semibold');
+
+        if ($font) {
+            $fontSize = $isStory ? 22 : 20;
+
+            $bbox = imagettfbbox($fontSize, 0, $font, $siteName);
+            $textWidth = abs($bbox[4] - $bbox[0]);
+
+            // Position: bottom-right, above the CTA button
+            $textX = $width - $textWidth - 50;
+            $textY = $isStory ? ($height - 130) : ($height - 100);
+
+            imagettftext($canvas, $fontSize, 0, $textX + 2, $textY + 2, $goldShadow, $font, $siteName);
+            imagettftext($canvas, $fontSize, 0, $textX, $textY, $gold, $font, $siteName);
+        } else {
+            $textWidth = strlen($siteName) * 8;
+            $textX = $width - $textWidth - 50;
+            $textY = $height - 110;
+            imagestring($canvas, 4, $textX + 1, $textY + 1, $siteName, $goldShadow);
+            imagestring($canvas, 4, $textX, $textY, $siteName, $gold);
+        }
+    }
+
+    /**
+     * Add discount badge (professional circular badge).
+     */
+    protected function addDiscountBadge($canvas, string $discountValue, int $width, int $height, bool $isStory): void
+    {
+        $badgeSize = (int)(min($width, $height) * 0.20);
+        $badgeX = $width - $badgeSize - 60;
+        $badgeY = $isStory ? (int)($height * 0.08) : 70;
+
+        $gold = imagecolorallocate($canvas, 201, 169, 110);
+        $black = imagecolorallocate($canvas, 10, 10, 10);
+        $white = imagecolorallocate($canvas, 255, 255, 255);
+        $darkGold = imagecolorallocate($canvas, 160, 130, 70);
+        $red = imagecolorallocate($canvas, 200, 40, 40);
+
+        $centerX = $badgeX + ($badgeSize / 2);
+        $centerY = $badgeY + ($badgeSize / 2);
+
+        // Drop shadow (larger and softer)
+        $shadow = imagecolorallocatealpha($canvas, 0, 0, 0, 70);
+        imagefilledellipse($canvas, $centerX + 10, $centerY + 10, $badgeSize + 20, $badgeSize + 20, $shadow);
+
+        // Outer ring (golden)
+        imagefilledellipse($canvas, $centerX, $centerY, $badgeSize, $badgeSize, $gold);
+
+        // Inner circle (red for urgency)
+        imagefilledellipse($canvas, $centerX, $centerY, (int)($badgeSize * 0.85), (int)($badgeSize * 0.85), $red);
+
+        // Accent ring
+        imageellipse($canvas, $centerX, $centerY, $badgeSize, $badgeSize, $white);
+        imagesetthickness($canvas, 2);
+        imageellipse($canvas, $centerX, $centerY, (int)($badgeSize * 0.85), (int)($badgeSize * 0.85), $gold);
+        imagesetthickness($canvas, 1);
+
+        $font = $this->getFont('sans-bold');
+
+        if ($font) {
+            // Main discount value
+            $text = str_replace(['%', ' '], '', $discountValue);
+            $fontSize = (int)($badgeSize * 0.35);
+
+            $bbox = imagettfbbox($fontSize, 0, $font, $text);
+            $textWidth = abs($bbox[4] - $bbox[0]);
+            $textHeight = abs($bbox[5] - $bbox[1]);
+
+            $textX = $centerX - ($textWidth / 2);
+            $textY = $centerY - 15;
+
+            // Discount value
+            imagettftext($canvas, $fontSize, 0, (int)$textX, (int)$textY, $white, $font, $text);
+
+            // "OFF" text
+            $offSize = (int)($fontSize * 0.5);
+            $bboxOff = imagettfbbox($offSize, 0, $font, 'OFF');
+            $offWidth = abs($bboxOff[4] - $bboxOff[0]);
+            $offX = $centerX - ($offWidth / 2);
+
+            imagettftext($canvas, $offSize, 0, (int)$offX, (int)($centerY + 30), $white, $font, 'OFF');
+        } else {
+            // Fallback
+            $text = str_replace('%', '', $discountValue);
+            $textWidth = strlen($text) * 9;
+            $textX = $centerX - ($textWidth / 2);
+            imagestring($canvas, 5, (int)$textX, (int)($centerY - 20), $text, $white);
+            imagestring($canvas, 5, (int)($centerX - 15), (int)($centerY + 5), 'OFF', $white);
+        }
+    }
+
+    /**
+     * Add product name overlay with background panel.
+     */
+    protected function addProductNameOverlay($canvas, string $productName, int $width, int $height, bool $isStory, string $template): void
+    {
+        $gold = imagecolorallocate($canvas, 201, 169, 110);
+        $black = imagecolorallocate($canvas, 10, 10, 10);
+        $ivory = imagecolorallocate($canvas, 250, 250, 248);
+        $blackBg = imagecolorallocatealpha($canvas, 10, 10, 10, 20);
+
+        // Truncate long names
+        $displayName = mb_strlen($productName) > 35 ? mb_substr($productName, 0, 32) . '...' : $productName;
+        $displayName = strtoupper($displayName);
+
+        // Position: top center for story, top left for post
+        $panelHeight = $isStory ? 140 : 110;
+        $panelY = $isStory ? 60 : 40;
+
+        // Semi-transparent panel
+        imagefilledrectangle($canvas, 40, $panelY, $width - 40, $panelY + $panelHeight, $blackBg);
+
+        // Gold top border
+        imagefilledrectangle($canvas, 40, $panelY, $width - 40, $panelY + 6, $gold);
+
+        // Product name text with TTF font
+        $font = $this->getFont('serif-bold');
+        if ($font) {
+            $fontSize = $isStory ? 48 : 42;
+
+            // Calculate text bounding box for centering
+            $bbox = imagettfbbox($fontSize, 0, $font, $displayName);
+            $textWidth = abs($bbox[4] - $bbox[0]);
+            $textHeight = abs($bbox[5] - $bbox[1]);
+
+            $textX = (int)(($width - $textWidth) / 2);
+            $textY = $panelY + (int)(($panelHeight + $textHeight) / 2);
+
+            // Text shadow for depth
+            imagettftext($canvas, $fontSize, 0, $textX + 3, $textY + 3, $black, $font, $displayName);
+            // Main text in ivory
+            imagettftext($canvas, $fontSize, 0, $textX, $textY, $ivory, $font, $displayName);
+        } else {
+            // Fallback to built-in font
+            $textX = (int)(($width - (strlen($displayName) * 10)) / 2);
+            $textY = $panelY + 50;
+            imagestring($canvas, 5, $textX + 2, $textY + 2, $displayName, $black);
+            imagestring($canvas, 5, $textX, $textY, $displayName, $ivory);
+        }
+    }
+
+    /**
+     * Add price display with discount info.
+     */
+    protected function addPriceDisplay($canvas, array $context, int $width, int $height, bool $isStory, string $type): void
+    {
+        $gold = imagecolorallocate($canvas, 201, 169, 110);
+        $black = imagecolorallocate($canvas, 10, 10, 10);
+        $ivory = imagecolorallocate($canvas, 250, 250, 248);
+        $white = imagecolorallocate($canvas, 255, 255, 255);
+        $red = imagecolorallocate($canvas, 200, 40, 40);
+
+        $price = $context['price'] ?? null;
+        $originalPrice = $context['original_price'] ?? null;
+
+        if (!$price) return;
+
+        // Position: bottom left
+        $priceY = $height - ($isStory ? 220 : 180);
+        $priceX = 60;
+
+        // Price panel background
+        $panelWidth = 350;
+        $panelHeight = 100;
+        $panelBg = imagecolorallocatealpha($canvas, 10, 10, 10, 15);
+        imagefilledrectangle($canvas, $priceX - 20, $priceY - 15, $priceX + $panelWidth, $priceY + $panelHeight, $panelBg);
+
+        // Gold border
+        imagerectangle($canvas, $priceX - 20, $priceY - 15, $priceX + $panelWidth, $priceY + $panelHeight, $gold);
+        imagerectangle($canvas, $priceX - 21, $priceY - 16, $priceX + $panelWidth + 1, $priceY + $panelHeight + 1, $gold);
+
+        $font = $this->getFont('sans-bold');
+
+        if ($font) {
+            // Current price with TTF
+            $priceText = 'AED ' . number_format($price, 0);
+            imagettftext($canvas, 36, 0, $priceX, $priceY + 50, $white, $font, $priceText);
+
+            // Original price (if on sale)
+            if ($originalPrice && $originalPrice > $price) {
+                $originalText = 'AED ' . number_format($originalPrice, 0);
+                $fontSmall = $this->getFont('sans-semibold');
+
+                // Position for original price
+                $bbox = imagettfbbox(24, 0, $fontSmall, $originalText);
+                $textWidth = abs($bbox[4] - $bbox[0]);
+
+                imagettftext($canvas, 24, 0, $priceX, $priceY + 85, $red, $fontSmall, $originalText);
+
+                // Strikethrough line
+                imageline($canvas, $priceX, $priceY + 70, $priceX + $textWidth, $priceY + 70, $red);
+                imagesetthickness($canvas, 2);
+                imageline($canvas, $priceX, $priceY + 70, $priceX + $textWidth, $priceY + 70, $red);
+                imagesetthickness($canvas, 1);
+            }
+        } else {
+            // Fallback
+            $priceText = 'AED ' . number_format($price, 2);
+            imagestring($canvas, 5, $priceX, $priceY + 30, $priceText, $white);
+
+            if ($originalPrice && $originalPrice > $price) {
+                $originalText = 'AED ' . number_format($originalPrice, 2);
+                imagestring($canvas, 4, $priceX, $priceY + 60, $originalText, $red);
+                imageline($canvas, $priceX, $priceY + 67, $priceX + 120, $priceY + 67, $red);
+            }
+        }
+    }
+
+    /**
+     * Add CTA button overlay.
+     */
+    protected function addCTAButton($canvas, string $cta, int $width, int $height, bool $isStory): void
+    {
+        $gold = imagecolorallocate($canvas, 201, 169, 110);
+        $black = imagecolorallocate($canvas, 10, 10, 10);
+        $white = imagecolorallocate($canvas, 255, 255, 255);
+        $darkGold = imagecolorallocate($canvas, 160, 130, 70);
+
+        // Position: bottom center
+        $btnWidth = 340;
+        $btnHeight = 75;
+        $btnX = (int)(($width - $btnWidth) / 2);
+        $btnY = $height - ($isStory ? 100 : 80);
+
+        // Button shadow (larger, softer)
+        $shadow = imagecolorallocatealpha($canvas, 0, 0, 0, 70);
+        imagefilledrectangle($canvas, $btnX + 6, $btnY + 6, $btnX + $btnWidth + 6, $btnY + $btnHeight + 6, $shadow);
+
+        // Button background (gradient effect with layering)
+        imagefilledrectangle($canvas, $btnX, $btnY, $btnX + $btnWidth, $btnY + $btnHeight, $gold);
+
+        // Highlight on top edge
+        $highlight = imagecolorallocatealpha($canvas, 255, 255, 255, 100);
+        imagefilledrectangle($canvas, $btnX, $btnY, $btnX + $btnWidth, $btnY + 3, $highlight);
+
+        // Double border for luxury effect
+        imagerectangle($canvas, $btnX, $btnY, $btnX + $btnWidth, $btnY + $btnHeight, $darkGold);
+        imagerectangle($canvas, $btnX - 1, $btnY - 1, $btnX + $btnWidth + 1, $btnY + $btnHeight + 1, $darkGold);
+
+        // CTA text with TTF font
+        $ctaText = strtoupper(mb_substr($cta, 0, 20));
+        $font = $this->getFont('sans-bold');
+
+        if ($font) {
+            $fontSize = 32;
+
+            // Calculate text bounding box for perfect centering
+            $bbox = imagettfbbox($fontSize, 0, $font, $ctaText);
+            $textWidth = abs($bbox[4] - $bbox[0]);
+            $textHeight = abs($bbox[5] - $bbox[1]);
+
+            $textX = $btnX + (int)(($btnWidth - $textWidth) / 2);
+            $textY = $btnY + (int)(($btnHeight + $textHeight) / 2);
+
+            // Shadow for depth
+            imagettftext($canvas, $fontSize, 0, $textX + 2, $textY + 2, $darkGold, $font, $ctaText);
+            // Main text
+            imagettftext($canvas, $fontSize, 0, $textX, $textY, $black, $font, $ctaText);
+        } else {
+            // Fallback
+            $textWidth = strlen($ctaText) * 9;
+            $textX = $btnX + (int)(($btnWidth - $textWidth) / 2);
+            $textY = $btnY + (int)(($btnHeight - 16) / 2);
+            imagestring($canvas, 5, $textX, $textY, $ctaText, $black);
+        }
+    }
+
+    /**
+     * Add corner sticker (NEW, SALE, LIMITED, etc.).
+     */
+    protected function addCornerSticker($canvas, string $text, int $width, int $height, $color): void
+    {
+        $white = imagecolorallocate($canvas, 255, 255, 255);
+        $black = imagecolorallocate($canvas, 10, 10, 10);
+
+        $stickerSize = 100;
+        $stickerX = 50;
+        $stickerY = 50;
+
+        // Starburst effect (simplified hexagon)
+        imagefilledellipse($canvas, $stickerX + 50, $stickerY + 50, $stickerSize, $stickerSize, $color);
+        imageellipse($canvas, $stickerX + 50, $stickerY + 50, $stickerSize, $stickerSize, $white);
+
+        // Text
+        $textWidth = strlen($text) * 8;
+        $textX = $stickerX + 50 - ($textWidth / 2);
+        $textY = $stickerY + 45;
+
+        imagestring($canvas, 4, (int)$textX, (int)$textY, strtoupper($text), $white);
+    }
+
+    /**
+     * Get appropriate CTA based on post type.
+     */
+    protected function getCTA(string $type, array $context): ?string
+    {
+        return match($type) {
+            'product_promo' => 'SHOP NOW',
+            'offer' => 'GRAB THE OFFER',
+            'brand_story' => 'EXPLORE COLLECTION',
+            default => 'SHOP NOW',
+        };
     }
 
     /**

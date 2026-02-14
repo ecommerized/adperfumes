@@ -67,10 +67,10 @@ class SocialMediaPostResource extends Resource
                             ->helperText('Link this post to a discount code.'),
 
                         Forms\Components\Toggle::make('generate_ai_image')
-                            ->label('Generate AI Image')
-                            ->helperText('If product selected: Creates branded design using actual product image. Otherwise: Uses DALL-E 3 ($0.04 per image)')
-                            ->default(false)
-                            ->reactive()
+                            ->label('Generate AI Ad Creative')
+                            ->helperText('Creates professional ad creative with product image, price, CTA button, and brand styling')
+                            ->default(true)
+                            ->live()
                             ->columnSpanFull(),
 
                         Forms\Components\Select::make('image_size_type')
@@ -185,39 +185,39 @@ class SocialMediaPostResource extends Resource
                             ->columnSpanFull(),
 
                         Forms\Components\Hidden::make('generated_image_path')
+                            ->live()
                             ->dehydrateStateUsing(fn ($state) => $state),
 
                         Forms\Components\Placeholder::make('generated_image_preview')
                             ->label('Generated Image Preview')
-                            ->reactive()
+                            ->live()
                             ->content(function ($get) {
-                                $imagePath = $get('generated_image_path') ?: (is_array($get('image_path')) ? ($get('image_path')[0] ?? '') : $get('image_path'));
+                                $imagePath = $get('generated_image_path');
 
                                 if (empty($imagePath)) {
-                                    return new \Illuminate\Support\HtmlString('<p style="color: #9ca3af; font-size: 13px;">No image generated yet. Click "Generate Caption & Image with AI" above.</p>');
+                                    return new \Illuminate\Support\HtmlString(
+                                        '<div style="padding: 40px; text-align: center; background: #f9fafb; border: 2px dashed #d1d5db; border-radius: 12px;">'
+                                        . '<p style="color: #6b7280; font-size: 14px; margin: 0;">No image generated yet.</p>'
+                                        . '<p style="color: #9ca3af; font-size: 13px; margin-top: 8px;">1. Select a product above</p>'
+                                        . '<p style="color: #9ca3af; font-size: 13px; margin-top: 4px;">2. Toggle "Generate AI Image" ON</p>'
+                                        . '<p style="color: #9ca3af; font-size: 13px; margin-top: 4px;">3. Click "Generate Caption & Image with AI"</p>'
+                                        . '</div>'
+                                    );
                                 }
 
                                 $imageUrl = \Storage::disk('public')->url($imagePath);
-                                $isProduct = str_contains($imagePath, 'social-product-');
-                                $isAI = str_contains($imagePath, 'social-ai-');
                                 $isStory = str_contains($imagePath, '-story-');
                                 $isPost = str_contains($imagePath, '-post-');
-
-                                $sizeLabel = $isStory ? ' (Story 1080x1920)' : ($isPost ? ' (Post 1080x1080)' : '');
-
-                                $badge = '';
-                                if ($isProduct) {
-                                    $badge = '<div style="margin-bottom: 12px; padding: 10px; background: #eff6ff; border: 1px solid #60a5fa; border-radius: 6px; color: #1e40af; font-size: 13px;">
-                                        <strong>✓ Product Image Design' . $sizeLabel . '</strong> - Using actual product photo with branded background
-                                    </div>';
-                                } elseif ($isAI) {
-                                    $badge = '<div style="margin-bottom: 12px; padding: 10px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; color: #166534; font-size: 13px;">
-                                        <strong>✓ AI Generated' . $sizeLabel . '</strong> - DALL-E 3 design with logo overlay
-                                    </div>';
-                                }
+                                $sizeLabel = $isStory ? 'Story 1080x1920' : ($isPost ? 'Post 1080x1080' : 'Custom');
 
                                 return new \Illuminate\Support\HtmlString(
-                                    $badge . '<img src="' . e($imageUrl) . '?t=' . time() . '" style="max-width: 100%; max-height: 500px; border-radius: 8px; border: 2px solid #e5e7eb; display: block; margin: 0 auto;" />'
+                                    '<div style="margin-bottom: 12px; padding: 10px; background: linear-gradient(135deg, #eff6ff, #f0fdf4); border: 1px solid #60a5fa; border-radius: 8px; color: #1e40af; font-size: 13px; display: flex; align-items: center; gap: 8px;">'
+                                    . '<span style="font-size: 18px;">✅</span>'
+                                    . '<strong>Ad Creative Generated (' . $sizeLabel . ')</strong>'
+                                    . '</div>'
+                                    . '<div style="text-align: center; background: #0a0a0a; padding: 16px; border-radius: 12px; border: 2px solid #c9a96e;">'
+                                    . '<img src="' . e($imageUrl) . '?t=' . time() . '" style="max-width: 100%; max-height: 500px; border-radius: 8px; display: block; margin: 0 auto;" />'
+                                    . '</div>'
                                 );
                             })
                             ->columnSpanFull(),
@@ -227,21 +227,25 @@ class SocialMediaPostResource extends Resource
                                 ->label('Regenerate AI Image')
                                 ->icon('heroicon-o-arrow-path')
                                 ->color('warning')
-                                ->visible(fn ($get) => !empty($get('generate_ai_image')))
+                                ->visible(fn ($get) => !empty($get('generated_image_path')))
                                 ->action(function ($get, $set) {
                                     $type = $get('type') ?? 'custom';
-                                    $context = [];
+                                    $sizeType = $get('image_size_type') ?? 'post';
+                                    $context = ['size_type' => $sizeType];
 
                                     $productId = $get('product_id');
                                     if ($productId) {
-                                        $product = Product::with(['brand', 'categories'])->find($productId);
+                                        $product = Product::with(['brand', 'categories', 'topNotes', 'middleNotes', 'baseNotes'])->find($productId);
                                         if ($product) {
-                                            $context = [
+                                            $context = array_merge($context, [
                                                 'product_name' => $product->name,
+                                                'product_description' => mb_substr($product->description ?? '', 0, 500),
                                                 'brand_name' => $product->brand?->name,
                                                 'price' => $product->price,
-                                                'product_image_path' => $product->image, // For actual product image
-                                            ];
+                                                'original_price' => $product->original_price,
+                                                'on_sale' => $product->on_sale,
+                                                'product_image_path' => $product->image,
+                                            ]);
                                         }
                                     }
 
@@ -249,31 +253,34 @@ class SocialMediaPostResource extends Resource
                                     if ($discountId) {
                                         $discount = \App\Models\Discount::find($discountId);
                                         if ($discount) {
-                                            $context['discount_code'] = $discount->code;
-                                            $context['discount_value'] = $discount->formatted_value;
+                                            $context = array_merge($context, [
+                                                'discount_code' => $discount->code,
+                                                'discount_value' => $discount->formatted_value,
+                                            ]);
                                         }
                                     }
 
                                     $service = app(SocialMediaService::class);
+                                    $dimensions = ($sizeType === 'story') ? [1080, 1920] : [1080, 1080];
                                     $imagePath = $service->generateImage($type, $context);
 
                                     if ($imagePath) {
-                                        // For saved files on disk, set as string path
-                                        $set('image_path', $imagePath);
+                                        $set('generated_image_path', $imagePath);
                                         Notification::make()
-                                            ->title('New image generated!')
+                                            ->title('New ad creative generated!')
+                                            ->body("Size: {$sizeType}")
                                             ->success()
                                             ->send();
                                     } else {
                                         Notification::make()
                                             ->title('Image generation failed')
-                                            ->body('Check your OpenAI API key in settings.')
+                                            ->body('Make sure a product is selected with an image.')
                                             ->danger()
                                             ->send();
                                     }
                                 }),
                         ])
-                        ->visible(fn ($get) => !empty($get('generate_ai_image')))
+                        ->visible(fn ($get) => !empty($get('generated_image_path')))
                         ->columnSpanFull(),
 
                         Forms\Components\Placeholder::make('product_image_preview')
