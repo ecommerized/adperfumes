@@ -1,0 +1,8 @@
+vendor/
+node_modules/
+storage/
+.git/
+bootstrap/cache/
+public/build/
+public/hot
+*.lock

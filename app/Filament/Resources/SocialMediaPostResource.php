@@ -68,7 +68,7 @@ class SocialMediaPostResource extends Resource
 
                         Forms\Components\Toggle::make('generate_ai_image')
                             ->label('Generate AI Image')
-                            ->helperText('Use DALL-E 3 to automatically generate a promotional image ($0.04 per image)')
+                            ->helperText('If product selected: Creates branded design using actual product image. Otherwise: Uses DALL-E 3 ($0.04 per image)')
                             ->default(false)
                             ->columnSpanFull(),
 
@@ -100,6 +100,7 @@ class SocialMediaPostResource extends Resource
                                                     'base' => $product->baseNotes->pluck('name')->toArray(),
                                                 ],
                                                 'product_url' => url("/products/{$product->slug}"),
+                                                'product_image_path' => $product->image, // For actual product image in design
                                             ];
                                         }
                                     }
@@ -122,7 +123,8 @@ class SocialMediaPostResource extends Resource
                                         $set('hashtags', $result['hashtags']);
 
                                         if (isset($result['image_path'])) {
-                                            $set('image_path', $result['image_path']);
+                                            // FileUpload expects an array
+                                            $set('image_path', [$result['image_path']]);
                                         }
 
                                         Notification::make()
@@ -161,14 +163,24 @@ class SocialMediaPostResource extends Resource
                             ->disk('public')
                             ->directory('social-posts')
                             ->maxSize(5120)
-                            ->helperText('AI-generated image (with logo overlay) or upload custom. Recommended: 1024x1024px. Max 5MB.')
+                            ->helperText('AI will use actual product image with branded design, or generate with DALL-E 3, or upload custom. Recommended: 1024x1024px. Max 5MB.')
                             ->imagePreviewHeight('300')
                             ->columnSpanFull(),
 
                         Forms\Components\Placeholder::make('ai_image_info')
-                            ->label('AI Image Generation')
+                            ->label('Image Generation Info')
                             ->content(function ($get) {
-                                $imagePath = $get('image_path');
+                                $imagePath = is_array($get('image_path')) ? ($get('image_path')[0] ?? '') : $get('image_path');
+
+                                if ($imagePath && str_contains($imagePath, 'social-product-')) {
+                                    return new \Illuminate\Support\HtmlString(
+                                        '<div style="padding: 12px; background: #eff6ff; border: 1px solid #60a5fa; border-radius: 6px; color: #1e40af;">
+                                            <strong>✓ Product Image Design</strong><br>
+                                            Branded design using: Actual product image + Brand colors + Logo overlay
+                                        </div>'
+                                    );
+                                }
+
                                 if ($imagePath && str_contains($imagePath, 'social-ai-')) {
                                     return new \Illuminate\Support\HtmlString(
                                         '<div style="padding: 12px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; color: #166534;">
@@ -179,7 +191,10 @@ class SocialMediaPostResource extends Resource
                                 }
                                 return '';
                             })
-                            ->visible(fn ($get) => !empty($get('image_path')) && str_contains($get('image_path'), 'social-ai-'))
+                            ->visible(function ($get) {
+                                $imagePath = is_array($get('image_path')) ? ($get('image_path')[0] ?? '') : $get('image_path');
+                                return !empty($imagePath) && (str_contains($imagePath, 'social-ai-') || str_contains($imagePath, 'social-product-'));
+                            })
                             ->columnSpanFull(),
 
                         Forms\Components\Actions::make([
@@ -200,6 +215,7 @@ class SocialMediaPostResource extends Resource
                                                 'product_name' => $product->name,
                                                 'brand_name' => $product->brand?->name,
                                                 'price' => $product->price,
+                                                'product_image_path' => $product->image, // For actual product image
                                             ];
                                         }
                                     }
@@ -217,7 +233,8 @@ class SocialMediaPostResource extends Resource
                                     $imagePath = $service->generateImage($type, $context);
 
                                     if ($imagePath) {
-                                        $set('image_path', $imagePath);
+                                        // FileUpload expects an array
+                                        $set('image_path', [$imagePath]);
                                         Notification::make()
                                             ->title('New image generated!')
                                             ->success()

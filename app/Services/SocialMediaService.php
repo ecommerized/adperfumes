@@ -62,10 +62,17 @@ class SocialMediaService
     }
 
     /**
-     * Generate a promotional image using DALL-E 3.
+     * Generate a promotional image using product image or DALL-E 3.
      */
     public function generateImage(string $type, array $context = []): ?string
     {
+        // If we have a product image, create a branded composite design
+        if (!empty($context['product_image_path'])) {
+            Log::info('SocialMediaService: Using actual product image for design');
+            return $this->createProductImageDesign($type, $context);
+        }
+
+        // Otherwise, use DALL-E 3 to generate from scratch
         if (empty($this->openaiApiKey)) {
             Log::error('SocialMediaService: OpenAI API key not configured');
             return null;
@@ -106,6 +113,148 @@ class SocialMediaService
             return null;
         } catch (\Exception $e) {
             Log::error('SocialMediaService: Image generation exception', ['message' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+    /**
+     * Create a branded social media image using actual product image.
+     */
+    protected function createProductImageDesign(string $type, array $context): ?string
+    {
+        try {
+            $productImagePath = $context['product_image_path'];
+
+            // Get full path to product image
+            $fullPath = \Storage::disk('public')->path($productImagePath);
+
+            if (!file_exists($fullPath)) {
+                Log::warning('SocialMediaService: Product image not found', ['path' => $productImagePath]);
+                return null;
+            }
+
+            // Create 1024x1024 canvas with branded gradient background
+            $canvas = imagecreatetruecolor(1024, 1024);
+
+            // Brand colors: #C9A96E (gold), #0A0A0A (black), #FAFAF8 (ivory)
+            $gold = imagecolorallocate($canvas, 201, 169, 110);
+            $black = imagecolorallocate($canvas, 10, 10, 10);
+            $ivory = imagecolorallocate($canvas, 250, 250, 248);
+            $darkGold = imagecolorallocate($canvas, 160, 130, 70);
+
+            // Create elegant gradient background (black to dark gold)
+            for ($y = 0; $y < 1024; $y++) {
+                $ratio = $y / 1024;
+                $r = (int)(10 + (160 - 10) * $ratio);
+                $g = (int)(10 + (130 - 10) * $ratio);
+                $b = (int)(10 + (70 - 10) * $ratio);
+                $color = imagecolorallocate($canvas, $r, $g, $b);
+                imagefilledrectangle($canvas, 0, $y, 1024, $y + 1, $color);
+            }
+
+            // Add subtle texture/noise for luxury feel
+            for ($i = 0; $i < 500; $i++) {
+                $x = rand(0, 1024);
+                $y = rand(0, 1024);
+                $alpha = rand(20, 50);
+                $noise = imagecolorallocatealpha($canvas, 255, 255, 255, $alpha);
+                imagesetpixel($canvas, $x, $y, $noise);
+            }
+
+            // Load product image
+            $ext = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
+            $productImg = match($ext) {
+                'png' => imagecreatefrompng($fullPath),
+                'jpg', 'jpeg' => imagecreatefromjpeg($fullPath),
+                'gif' => imagecreatefromgif($fullPath),
+                'webp' => imagecreatefromwebp($fullPath),
+                default => null,
+            };
+
+            if (!$productImg) {
+                Log::warning('SocialMediaService: Could not load product image');
+                imagedestroy($canvas);
+                return null;
+            }
+
+            // Get product image dimensions
+            $prodWidth = imagesx($productImg);
+            $prodHeight = imagesy($productImg);
+
+            // Calculate size to fit product (60% of canvas)
+            $maxSize = (int)(1024 * 0.6);
+            $scale = min($maxSize / $prodWidth, $maxSize / $prodHeight);
+            $newProdWidth = (int)($prodWidth * $scale);
+            $newProdHeight = (int)($prodHeight * $scale);
+
+            // Center the product image
+            $prodX = (int)((1024 - $newProdWidth) / 2);
+            $prodY = (int)((1024 - $newProdHeight) / 2);
+
+            // Add subtle shadow behind product
+            $shadowOffset = 15;
+            $shadow = imagecolorallocatealpha($canvas, 0, 0, 0, 50);
+            imagefilledellipse($canvas, $prodX + ($newProdWidth / 2) + $shadowOffset, $prodY + ($newProdHeight / 2) + $shadowOffset, $newProdWidth - 50, $newProdHeight - 50, $shadow);
+
+            // Place product image on canvas
+            imagecopyresampled(
+                $canvas, $productImg,
+                $prodX, $prodY, 0, 0,
+                $newProdWidth, $newProdHeight,
+                $prodWidth, $prodHeight
+            );
+
+            imagedestroy($productImg);
+
+            // Add decorative elements based on post type
+            if ($type === 'offer' && !empty($context['discount_value'])) {
+                // Add discount badge (top-right corner)
+                $badgeSize = 150;
+                $badgeX = 1024 - $badgeSize - 50;
+                $badgeY = 50;
+
+                // Draw golden circle badge
+                imagefilledellipse($canvas, $badgeX + ($badgeSize / 2), $badgeY + ($badgeSize / 2), $badgeSize, $badgeSize, $gold);
+                imageellipse($canvas, $badgeX + ($badgeSize / 2), $badgeY + ($badgeSize / 2), $badgeSize, $badgeSize, $ivory);
+
+                // Add discount text (simplified - would need GD font)
+                $discountText = $context['discount_value'];
+                imagestring($canvas, 5, $badgeX + 30, $badgeY + 60, strtoupper(substr($discountText, 0, 10)), $black);
+                imagestring($canvas, 5, $badgeX + 45, $badgeY + 80, 'OFF', $black);
+            }
+
+            // Add golden accent lines at top and bottom
+            imagefilledrectangle($canvas, 0, 30, 1024, 35, $gold);
+            imagefilledrectangle($canvas, 0, 1024 - 35, 1024, 1024 - 30, $gold);
+
+            // Save to temp file
+            $filename = 'social-product-' . time() . '-' . uniqid() . '.png';
+            $tempPath = sys_get_temp_dir() . '/' . $filename;
+            imagepng($canvas, $tempPath, 9);
+            imagedestroy($canvas);
+
+            // Overlay brand logo
+            $finalPath = $this->overlayBrandLogo($tempPath);
+
+            if ($finalPath) {
+                // Move to storage
+                $storagePath = 'social-posts/' . $filename;
+                \Storage::disk('public')->put($storagePath, file_get_contents($finalPath));
+                @unlink($tempPath);
+                @unlink($finalPath);
+
+                Log::info('SocialMediaService: Product image design created', ['path' => $storagePath]);
+                return $storagePath;
+            }
+
+            // Fallback: save without logo
+            $storagePath = 'social-posts/' . $filename;
+            \Storage::disk('public')->put($storagePath, file_get_contents($tempPath));
+            @unlink($tempPath);
+
+            return $storagePath;
+        } catch (\Exception $e) {
+            Log::error('SocialMediaService: Failed to create product image design', ['message' => $e->getMessage()]);
             return null;
         }
     }
@@ -397,7 +546,8 @@ class SocialMediaService
                 'base' => $product->baseNotes->pluck('name')->toArray(),
             ],
             'product_url' => url("/products/{$product->slug}"),
-            'image_path' => $product->image,
+            'image_path' => $product->image, // For saving to post record
+            'product_image_path' => $product->image, // For image generation
         ];
     }
 
@@ -445,7 +595,8 @@ class SocialMediaService
             'product_count' => $brand->products()->where('status', true)->count(),
             'featured_product' => $topProduct?->name,
             'brand_url' => url("/brands/{$brand->slug}"),
-            'image_path' => $topProduct?->image ?? $brand->logo,
+            'image_path' => $topProduct?->image ?? $brand->logo, // For saving to post record
+            'product_image_path' => $topProduct?->image, // For image generation (if available)
         ];
     }
 
