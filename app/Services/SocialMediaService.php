@@ -16,6 +16,7 @@ class SocialMediaService
     protected string $apiUrl;
     protected int $maxTokens;
     protected array $siteConfig;
+    protected ?string $openaiApiKey;
 
     public function __construct()
     {
@@ -25,12 +26,13 @@ class SocialMediaService
         $this->apiUrl = config('seo.anthropic.api_url');
         $this->maxTokens = 2048;
         $this->siteConfig = config('seo.site');
+        $this->openaiApiKey = $settings->get('openai_api_key') ?: config('services.openai.api_key');
     }
 
     /**
-     * Generate a caption + hashtags using Claude AI.
+     * Generate a caption + hashtags + image using AI.
      */
-    public function generateCaption(string $type, array $context = []): ?array
+    public function generateCaption(string $type, array $context = [], bool $generateImage = false): ?array
     {
         $systemPrompt = $this->buildCaptionSystemPrompt();
         $userPrompt = $this->buildCaptionUserPrompt($type, $context);
@@ -42,11 +44,132 @@ class SocialMediaService
             return null;
         }
 
-        return [
+        $result = [
             'caption' => $response['caption'],
             'hashtags' => $response['hashtags'] ?? '',
             'suggested_cta' => $response['suggested_cta'] ?? '',
         ];
+
+        // Generate image if requested
+        if ($generateImage) {
+            $imagePath = $this->generateImage($type, $context);
+            if ($imagePath) {
+                $result['image_path'] = $imagePath;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Generate a promotional image using DALL-E 3.
+     */
+    public function generateImage(string $type, array $context = []): ?string
+    {
+        if (empty($this->openaiApiKey)) {
+            Log::error('SocialMediaService: OpenAI API key not configured');
+            return null;
+        }
+
+        $prompt = $this->buildImagePrompt($type, $context);
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->openaiApiKey,
+                'Content-Type' => 'application/json',
+            ])
+            ->timeout(120)
+            ->post('https://api.openai.com/v1/images/generations', [
+                'model' => 'dall-e-3',
+                'prompt' => $prompt,
+                'n' => 1,
+                'size' => '1024x1024',
+                'quality' => 'standard',
+            ]);
+
+            if ($response->successful()) {
+                $imageUrl = $response->json('data.0.url');
+
+                if ($imageUrl) {
+                    // Download and save the image
+                    $imagePath = $this->downloadAndSaveImage($imageUrl);
+                    Log::info('SocialMediaService: Image generated successfully', ['path' => $imagePath]);
+                    return $imagePath;
+                }
+            }
+
+            Log::error('SocialMediaService: DALL-E API error', [
+                'status' => $response->status(),
+                'body' => mb_substr($response->body(), 0, 500),
+            ]);
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('SocialMediaService: Image generation exception', ['message' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+    /**
+     * Download image from URL and save to storage.
+     */
+    protected function downloadAndSaveImage(string $url): ?string
+    {
+        try {
+            $imageContent = file_get_contents($url);
+
+            if (!$imageContent) {
+                return null;
+            }
+
+            $filename = 'social-ai-' . time() . '-' . uniqid() . '.png';
+            $path = 'social-posts/' . $filename;
+
+            \Storage::disk('public')->put($path, $imageContent);
+
+            return $path;
+        } catch (\Exception $e) {
+            Log::error('SocialMediaService: Failed to download image', ['message' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+    /**
+     * Build DALL-E 3 image generation prompt.
+     */
+    protected function buildImagePrompt(string $type, array $context): string
+    {
+        $brandColors = '#C9A96E (luxury gold), #0A0A0A (black), #FAFAF8 (ivory)';
+
+        $basePrompt = "Create a luxury perfume social media post image with elegant design. ";
+        $basePrompt .= "Style: High-end, sophisticated, Instagram-worthy. ";
+        $basePrompt .= "Colors: Use gold (#C9A96E), black, and ivory tones. ";
+        $basePrompt .= "Include: Elegant typography, luxury aesthetic. ";
+
+        switch ($type) {
+            case 'product_promo':
+                $productName = $context['product_name'] ?? 'Luxury Perfume';
+                $brandName = $context['brand_name'] ?? '';
+                return $basePrompt . "Feature: {$productName}" .
+                       ($brandName ? " by {$brandName}" : "") .
+                       ". Show an elegant perfume bottle on a luxurious background. " .
+                       "Include subtle gold accents and sophisticated lighting.";
+
+            case 'offer':
+                $discountValue = $context['formatted_value'] ?? $context['discount_value'] ?? '20%';
+                return $basePrompt . "Feature: Special offer - {$discountValue} OFF. " .
+                       "Design: Bold discount badge with luxury perfume bottles. " .
+                       "Text: '{$discountValue} OFF' in elegant gold typography.";
+
+            case 'brand_story':
+                $brandName = $context['brand_name'] ?? 'AD Perfumes';
+                return $basePrompt . "Feature: {$brandName} brand story. " .
+                       "Design: Luxury perfume collection display with elegant branding. " .
+                       "Mood: Aspirational, premium, timeless.";
+
+            default:
+                return $basePrompt . "Create an elegant luxury perfume promotional image.";
+        }
     }
 
     /**

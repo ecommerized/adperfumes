@@ -66,13 +66,20 @@ class SocialMediaPostResource extends Resource
                             ->visible(fn ($get) => in_array($get('type'), ['offer', 'custom']))
                             ->helperText('Link this post to a discount code.'),
 
+                        Forms\Components\Toggle::make('generate_ai_image')
+                            ->label('Generate AI Image')
+                            ->helperText('Use DALL-E 3 to automatically generate a promotional image ($0.04 per image)')
+                            ->default(false)
+                            ->columnSpanFull(),
+
                         Forms\Components\Actions::make([
                             Forms\Components\Actions\Action::make('generate_caption')
-                                ->label('Generate Caption with AI')
+                                ->label('Generate Caption & Image with AI')
                                 ->icon('heroicon-o-sparkles')
                                 ->color('warning')
                                 ->action(function ($get, $set) {
                                     $type = $get('type') ?? 'custom';
+                                    $generateImage = $get('generate_ai_image') ?? false;
                                     $context = [];
 
                                     $productId = $get('product_id');
@@ -108,19 +115,24 @@ class SocialMediaPostResource extends Resource
                                     }
 
                                     $service = app(SocialMediaService::class);
-                                    $result = $service->generateCaption($type, $context);
+                                    $result = $service->generateCaption($type, $context, $generateImage);
 
                                     if ($result) {
                                         $set('caption', $result['caption']);
                                         $set('hashtags', $result['hashtags']);
+
+                                        if (isset($result['image_path'])) {
+                                            $set('image_path', $result['image_path']);
+                                        }
+
                                         Notification::make()
-                                            ->title('Caption generated successfully!')
+                                            ->title($generateImage ? 'Caption & Image generated!' : 'Caption generated!')
                                             ->success()
                                             ->send();
                                     } else {
                                         Notification::make()
-                                            ->title('Failed to generate caption')
-                                            ->body('Check your Anthropic API key in SEO Settings.')
+                                            ->title('Failed to generate content')
+                                            ->body('Check your API keys in Social Media Settings.')
                                             ->danger()
                                             ->send();
                                     }

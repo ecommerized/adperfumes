@@ -32,6 +32,7 @@ class SocialMediaSettings extends Page
         $this->form->fill([
             'facebook_page_id' => $settings->get('facebook_page_id'),
             'facebook_page_access_token' => $settings->get('facebook_page_access_token'),
+            'openai_api_key' => $settings->get('openai_api_key'),
             'social_auto_pilot_enabled' => (bool) $settings->get('social_auto_pilot_enabled', false),
             'social_auto_post_frequency' => $settings->get('social_auto_post_frequency', 'daily'),
             'social_auto_post_types' => json_decode($settings->get('social_auto_post_types', '["product_promo","offer","brand_story"]'), true),
@@ -59,6 +60,17 @@ class SocialMediaSettings extends Page
                             ->maxLength(1000)
                             ->helperText('Generate from the Meta Developer portal (Graph API Explorer). Requires pages_manage_posts permission.'),
                     ])->columns(2),
+
+                Forms\Components\Section::make('AI Image Generation')
+                    ->description('Enable AI-powered image generation for social media posts using DALL-E 3.')
+                    ->schema([
+                        Forms\Components\TextInput::make('openai_api_key')
+                            ->label('OpenAI API Key')
+                            ->password()
+                            ->revealable()
+                            ->maxLength(500)
+                            ->helperText('Get your API key from https://platform.openai.com/api-keys. Required for AI image generation ($0.04 per image).'),
+                    ]),
 
                 Forms\Components\Section::make('Auto-Pilot Settings')
                     ->description('Configure automatic social media post generation and scheduling.')
