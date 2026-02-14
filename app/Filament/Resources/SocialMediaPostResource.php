@@ -70,6 +70,18 @@ class SocialMediaPostResource extends Resource
                             ->label('Generate AI Image')
                             ->helperText('If product selected: Creates branded design using actual product image. Otherwise: Uses DALL-E 3 ($0.04 per image)')
                             ->default(false)
+                            ->reactive()
+                            ->columnSpanFull(),
+
+                        Forms\Components\Select::make('image_size_type')
+                            ->label('Image Size')
+                            ->options([
+                                'post' => 'Post (1080x1080 - Square)',
+                                'story' => 'Story (1080x1920 - Vertical)',
+                            ])
+                            ->default('post')
+                            ->visible(fn ($get) => $get('generate_ai_image'))
+                            ->helperText('Choose the format for your social media image')
                             ->columnSpanFull(),
 
                         Forms\Components\Actions::make([
@@ -77,10 +89,11 @@ class SocialMediaPostResource extends Resource
                                 ->label('Generate Caption & Image with AI')
                                 ->icon('heroicon-o-sparkles')
                                 ->color('warning')
-                                ->action(function ($get, $set) {
+                                ->action(function ($get, $set, $livewire) {
                                     $type = $get('type') ?? 'custom';
                                     $generateImage = $get('generate_ai_image') ?? false;
-                                    $context = [];
+                                    $sizeType = $get('image_size_type') ?? 'post';
+                                    $context = ['size_type' => $sizeType];
 
                                     $productId = $get('product_id');
                                     if ($productId) {
@@ -123,12 +136,12 @@ class SocialMediaPostResource extends Resource
                                         $set('hashtags', $result['hashtags']);
 
                                         if (isset($result['image_path'])) {
-                                            // For saved files on disk, set as string path
                                             $set('image_path', $result['image_path']);
                                         }
 
                                         Notification::make()
                                             ->title($generateImage ? 'Caption & Image generated!' : 'Caption generated!')
+                                            ->body($generateImage ? "Image size: {$sizeType}" : '')
                                             ->success()
                                             ->send();
                                     } else {
@@ -170,35 +183,36 @@ class SocialMediaPostResource extends Resource
 
                         Forms\Components\Placeholder::make('generated_image_preview')
                             ->label('Generated Image Preview')
+                            ->reactive()
                             ->content(function ($get) {
                                 $imagePath = is_array($get('image_path')) ? ($get('image_path')[0] ?? '') : $get('image_path');
 
                                 if (empty($imagePath)) {
-                                    return '';
+                                    return new \Illuminate\Support\HtmlString('<p style="color: #9ca3af; font-size: 13px;">No image generated yet. Click "Generate Caption & Image with AI" above.</p>');
                                 }
 
                                 $imageUrl = \Storage::disk('public')->url($imagePath);
                                 $isProduct = str_contains($imagePath, 'social-product-');
                                 $isAI = str_contains($imagePath, 'social-ai-');
+                                $isStory = str_contains($imagePath, '-story-');
+                                $isPost = str_contains($imagePath, '-post-');
+
+                                $sizeLabel = $isStory ? ' (Story 1080x1920)' : ($isPost ? ' (Post 1080x1080)' : '');
 
                                 $badge = '';
                                 if ($isProduct) {
                                     $badge = '<div style="margin-bottom: 12px; padding: 10px; background: #eff6ff; border: 1px solid #60a5fa; border-radius: 6px; color: #1e40af; font-size: 13px;">
-                                        <strong>✓ Product Image Design</strong> - Using actual product photo with branded background
+                                        <strong>✓ Product Image Design' . $sizeLabel . '</strong> - Using actual product photo with branded background
                                     </div>';
                                 } elseif ($isAI) {
                                     $badge = '<div style="margin-bottom: 12px; padding: 10px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; color: #166534; font-size: 13px;">
-                                        <strong>✓ AI Generated</strong> - DALL-E 3 design with logo overlay
+                                        <strong>✓ AI Generated' . $sizeLabel . '</strong> - DALL-E 3 design with logo overlay
                                     </div>';
                                 }
 
                                 return new \Illuminate\Support\HtmlString(
-                                    $badge . '<img src="' . e($imageUrl) . '" style="max-width: 100%; max-height: 400px; border-radius: 8px; border: 2px solid #e5e7eb; display: block;" />'
+                                    $badge . '<img src="' . e($imageUrl) . '?t=' . time() . '" style="max-width: 100%; max-height: 500px; border-radius: 8px; border: 2px solid #e5e7eb; display: block; margin: 0 auto;" />'
                                 );
-                            })
-                            ->visible(function ($get) {
-                                $imagePath = is_array($get('image_path')) ? ($get('image_path')[0] ?? '') : $get('image_path');
-                                return !empty($imagePath) && (str_contains($imagePath, 'social-ai-') || str_contains($imagePath, 'social-product-'));
                             })
                             ->columnSpanFull(),
 

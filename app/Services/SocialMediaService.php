@@ -52,7 +52,10 @@ class SocialMediaService
 
         // Generate image if requested
         if ($generateImage) {
-            $imagePath = $this->generateImage($type, $context);
+            $sizeType = $context['size_type'] ?? 'post';
+            $dimensions = ($sizeType === 'story') ? [1080, 1920] : [1080, 1080];
+
+            $imagePath = $this->generateImageSize($type, $context, $dimensions[0], $dimensions[1], $sizeType);
             if ($imagePath) {
                 $result['image_path'] = $imagePath;
             }
@@ -62,22 +65,53 @@ class SocialMediaService
     }
 
     /**
-     * Generate a promotional image using product image or DALL-E 3.
+     * Generate both post (1080x1080) and story (1080x1920) sizes.
+     */
+    protected function generateBothSizes(string $type, array $context): ?array
+    {
+        // Generate post size (square)
+        $postImage = $this->generateImageSize($type, $context, 1080, 1080, 'post');
+
+        // Generate story size (vertical)
+        $storyImage = $this->generateImageSize($type, $context, 1080, 1920, 'story');
+
+        if (!$postImage || !$storyImage) {
+            return null;
+        }
+
+        return [
+            'post' => $postImage,
+            'story' => $storyImage,
+        ];
+    }
+
+    /**
+     * Generate a single promotional image (backward compatibility).
      */
     public function generateImage(string $type, array $context = []): ?string
     {
+        return $this->generateImageSize($type, $context, 1080, 1080, 'post');
+    }
+
+    /**
+     * Generate promotional image with specific dimensions.
+     */
+    protected function generateImageSize(string $type, array $context, int $width, int $height, string $sizeType = 'post'): ?string
+    {
         // If we have a product image, create a branded composite design
         if (!empty($context['product_image_path'])) {
-            Log::info('SocialMediaService: Using actual product image for design');
-            return $this->createProductImageDesign($type, $context);
+            Log::info('SocialMediaService: Using actual product image for design', ['size' => "{$width}x{$height}"]);
+            return $this->createProductImageDesign($type, $context, $width, $height, $sizeType);
         }
 
-        // Otherwise, use DALL-E 3 to generate from scratch
+        // Otherwise, use DALL-E 3 to generate from scratch (only supports 1024x1024)
         if (empty($this->openaiApiKey)) {
             Log::error('SocialMediaService: OpenAI API key not configured');
             return null;
         }
 
+        // DALL-E 3 only supports 1024x1024, 1024x1792, 1792x1024
+        $dalleSize = ($width === $height) ? '1024x1024' : '1024x1792';
         $prompt = $this->buildImagePrompt($type, $context);
 
         try {
@@ -90,7 +124,7 @@ class SocialMediaService
                 'model' => 'dall-e-3',
                 'prompt' => $prompt,
                 'n' => 1,
-                'size' => '1024x1024',
+                'size' => $dalleSize,
                 'quality' => 'standard',
             ]);
 
@@ -98,9 +132,8 @@ class SocialMediaService
                 $imageUrl = $response->json('data.0.url');
 
                 if ($imageUrl) {
-                    // Download and save the image
-                    $imagePath = $this->downloadAndSaveImage($imageUrl);
-                    Log::info('SocialMediaService: Image generated successfully', ['path' => $imagePath]);
+                    $imagePath = $this->downloadAndSaveImage($imageUrl, $sizeType);
+                    Log::info('SocialMediaService: Image generated successfully', ['path' => $imagePath, 'size' => $dalleSize]);
                     return $imagePath;
                 }
             }
@@ -120,7 +153,7 @@ class SocialMediaService
     /**
      * Create a branded social media image using actual product image.
      */
-    protected function createProductImageDesign(string $type, array $context): ?string
+    protected function createProductImageDesign(string $type, array $context, int $width = 1080, int $height = 1080, string $sizeType = 'post'): ?string
     {
         try {
             $productImagePath = $context['product_image_path'];
@@ -144,8 +177,8 @@ class SocialMediaService
                 }
             }
 
-            // Create 1024x1024 canvas with branded gradient background
-            $canvas = imagecreatetruecolor(1024, 1024);
+            // Create canvas with specified dimensions
+            $canvas = imagecreatetruecolor($width, $height);
 
             // Brand colors: #C9A96E (gold), #0A0A0A (black), #FAFAF8 (ivory)
             $gold = imagecolorallocate($canvas, 201, 169, 110);
@@ -154,13 +187,16 @@ class SocialMediaService
             $darkGold = imagecolorallocate($canvas, 160, 130, 70);
 
             // Create sophisticated radial gradient (dark center to gold edges)
-            for ($y = 0; $y < 1024; $y++) {
-                for ($x = 0; $x < 1024; $x++) {
+            $centerX = $width / 2;
+            $centerY = $height / 2;
+            $maxDistance = sqrt($centerX * $centerX + $centerY * $centerY);
+
+            for ($y = 0; $y < $height; $y++) {
+                for ($x = 0; $x < $width; $x++) {
                     // Calculate distance from center
-                    $dx = $x - 512;
-                    $dy = $y - 512;
+                    $dx = $x - $centerX;
+                    $dy = $y - $centerY;
                     $distance = sqrt($dx * $dx + $dy * $dy);
-                    $maxDistance = 724; // sqrt(512^2 + 512^2)
 
                     // Smooth gradient from center to edge
                     $ratio = min($distance / $maxDistance, 1);
@@ -176,17 +212,19 @@ class SocialMediaService
             }
 
             // Add elegant golden vignette/glow at edges
-            for ($i = 0; $i < 300; $i++) {
+            $glowCount = (int)(($width + $height) / 6); // Scale with dimensions
+            for ($i = 0; $i < $glowCount; $i++) {
                 $edge = rand(0, 3); // 0=top, 1=right, 2=bottom, 3=left
-                $pos = rand(0, 1024);
-                $depth = rand(0, 150);
+                $posMax = ($edge % 2 === 0) ? $width : $height;
+                $pos = rand(0, $posMax);
+                $depth = rand(0, (int)min($width, $height) * 0.15);
                 $alpha = rand(100, 120);
                 $glow = imagecolorallocatealpha($canvas, 201, 169, 110, $alpha);
 
                 match($edge) {
                     0 => imagesetpixel($canvas, $pos, $depth, $glow), // top
-                    1 => imagesetpixel($canvas, 1024 - $depth, $pos, $glow), // right
-                    2 => imagesetpixel($canvas, $pos, 1024 - $depth, $glow), // bottom
+                    1 => imagesetpixel($canvas, $width - $depth, $pos, $glow), // right
+                    2 => imagesetpixel($canvas, $pos, $height - $depth, $glow), // bottom
                     3 => imagesetpixel($canvas, $depth, $pos, $glow), // left
                 };
             }
@@ -211,15 +249,16 @@ class SocialMediaService
             $prodWidth = imagesx($productImg);
             $prodHeight = imagesy($productImg);
 
-            // Calculate size to fit product (70% of canvas for bigger product display)
-            $maxSize = (int)(1024 * 0.70);
+            // Calculate size to fit product (adjust for aspect ratio)
+            $productRatio = ($width === $height) ? 0.70 : 0.50; // Smaller for vertical stories
+            $maxSize = (int)(min($width, $height) * $productRatio);
             $scale = min($maxSize / $prodWidth, $maxSize / $prodHeight);
             $newProdWidth = (int)($prodWidth * $scale);
             $newProdHeight = (int)($prodHeight * $scale);
 
             // Center the product image
-            $prodX = (int)((1024 - $newProdWidth) / 2);
-            $prodY = (int)((1024 - $newProdHeight) / 2);
+            $prodX = (int)(($width - $newProdWidth) / 2);
+            $prodY = (int)(($height - $newProdHeight) / 2);
 
             // Add luxury multi-layer shadow
             // Outer soft shadow
@@ -246,10 +285,10 @@ class SocialMediaService
 
             // Add decorative elements based on post type
             if ($type === 'offer' && !empty($context['discount_value'])) {
-                // Add discount badge (top-right corner)
-                $badgeSize = 150;
-                $badgeX = 1024 - $badgeSize - 50;
-                $badgeY = 50;
+                // Add discount badge (top-right corner, scaled to canvas)
+                $badgeSize = (int)(min($width, $height) * 0.14);
+                $badgeX = $width - $badgeSize - 50;
+                $badgeY = ($height > $width) ? (int)($height * 0.05) : 50;
 
                 // Draw golden circle badge
                 imagefilledellipse($canvas, $badgeX + ($badgeSize / 2), $badgeY + ($badgeSize / 2), $badgeSize, $badgeSize, $gold);
@@ -264,28 +303,28 @@ class SocialMediaService
             // Add elegant golden frame border (all sides)
             $borderThickness = 8;
             // Top border
-            imagefilledrectangle($canvas, 0, 0, 1024, $borderThickness, $gold);
+            imagefilledrectangle($canvas, 0, 0, $width, $borderThickness, $gold);
             // Bottom border
-            imagefilledrectangle($canvas, 0, 1024 - $borderThickness, 1024, 1024, $gold);
+            imagefilledrectangle($canvas, 0, $height - $borderThickness, $width, $height, $gold);
             // Left border
-            imagefilledrectangle($canvas, 0, 0, $borderThickness, 1024, $gold);
+            imagefilledrectangle($canvas, 0, 0, $borderThickness, $height, $gold);
             // Right border
-            imagefilledrectangle($canvas, 1024 - $borderThickness, 0, 1024, 1024, $gold);
+            imagefilledrectangle($canvas, $width - $borderThickness, 0, $width, $height, $gold);
 
             // Add inner ivory accent lines for luxury double-frame effect
             $innerBorder = 16;
             $ivoryAccent = imagecolorallocatealpha($canvas, 250, 250, 248, 30);
             // Top
-            imageline($canvas, $innerBorder, $innerBorder, 1024 - $innerBorder, $innerBorder, $ivoryAccent);
+            imageline($canvas, $innerBorder, $innerBorder, $width - $innerBorder, $innerBorder, $ivoryAccent);
             // Bottom
-            imageline($canvas, $innerBorder, 1024 - $innerBorder, 1024 - $innerBorder, 1024 - $innerBorder, $ivoryAccent);
+            imageline($canvas, $innerBorder, $height - $innerBorder, $width - $innerBorder, $height - $innerBorder, $ivoryAccent);
             // Left
-            imageline($canvas, $innerBorder, $innerBorder, $innerBorder, 1024 - $innerBorder, $ivoryAccent);
+            imageline($canvas, $innerBorder, $innerBorder, $innerBorder, $height - $innerBorder, $ivoryAccent);
             // Right
-            imageline($canvas, 1024 - $innerBorder, $innerBorder, 1024 - $innerBorder, 1024 - $innerBorder, $ivoryAccent);
+            imageline($canvas, $width - $innerBorder, $innerBorder, $width - $innerBorder, $height - $innerBorder, $ivoryAccent);
 
-            // Save to temp file
-            $filename = 'social-product-' . time() . '-' . uniqid() . '.png';
+            // Save to temp file with size type in filename
+            $filename = 'social-product-' . $sizeType . '-' . time() . '-' . uniqid() . '.png';
             $tempPath = sys_get_temp_dir() . '/' . $filename;
             imagepng($canvas, $tempPath, 9);
             imagedestroy($canvas);
