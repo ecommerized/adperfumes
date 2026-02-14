@@ -1,0 +1,358 @@
+<?php
+
+namespace App\Filament\Resources;
+
+use App\Filament\Resources\SocialMediaPostResource\Pages;
+use App\Jobs\PublishSocialMediaPostJob;
+use App\Models\Product;
+use App\Models\SocialMediaPost;
+use App\Services\SocialMediaService;
+use Filament\Forms;
+use Filament\Forms\Form;
+use Filament\Notifications\Notification;
+use Filament\Resources\Resource;
+use Filament\Tables;
+use Filament\Tables\Table;
+use Illuminate\Support\Str;
+
+class SocialMediaPostResource extends Resource
+{
+    protected static ?string $model = SocialMediaPost::class;
+
+    protected static ?string $navigationIcon = 'heroicon-o-megaphone';
+
+    protected static ?string $navigationGroup = 'Marketing';
+
+    protected static ?int $navigationSort = 6;
+
+    protected static ?string $navigationLabel = 'Social Posts';
+
+    protected static ?string $modelLabel = 'Social Media Post';
+
+    public static function form(Form $form): Form
+    {
+        return $form
+            ->schema([
+                Forms\Components\Section::make('Post Type & Content')
+                    ->schema([
+                        Forms\Components\Select::make('type')
+                            ->options([
+                                'product_promo' => 'Product Promotion',
+                                'offer' => 'Offer / Discount',
+                                'brand_story' => 'Brand Story',
+                                'custom' => 'Custom',
+                            ])
+                            ->default('product_promo')
+                            ->required()
+                            ->reactive()
+                            ->columnSpanFull(),
+
+                        Forms\Components\Select::make('product_id')
+                            ->label('Product')
+                            ->relationship('product', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->placeholder('Select a product (optional)')
+                            ->visible(fn ($get) => in_array($get('type'), ['product_promo', 'custom']))
+                            ->reactive()
+                            ->helperText('Select a product to promote. Its image can be used for the post.'),
+
+                        Forms\Components\Select::make('discount_id')
+                            ->label('Discount Code')
+                            ->relationship('discount', 'code')
+                            ->searchable()
+                            ->preload()
+                            ->placeholder('Select a discount (optional)')
+                            ->visible(fn ($get) => in_array($get('type'), ['offer', 'custom']))
+                            ->helperText('Link this post to a discount code.'),
+
+                        Forms\Components\Actions::make([
+                            Forms\Components\Actions\Action::make('generate_caption')
+                                ->label('Generate Caption with AI')
+                                ->icon('heroicon-o-sparkles')
+                                ->color('warning')
+                                ->action(function ($get, $set) {
+                                    $type = $get('type') ?? 'custom';
+                                    $context = [];
+
+                                    $productId = $get('product_id');
+                                    if ($productId) {
+                                        $product = Product::with(['brand', 'categories', 'topNotes', 'middleNotes', 'baseNotes'])->find($productId);
+                                        if ($product) {
+                                            $context = [
+                                                'product_name' => $product->name,
+                                                'product_description' => mb_substr($product->description ?? '', 0, 500),
+                                                'brand_name' => $product->brand?->name,
+                                                'price' => $product->price,
+                                                'original_price' => $product->original_price,
+                                                'on_sale' => $product->on_sale,
+                                                'categories' => $product->categories->pluck('name')->toArray(),
+                                                'notes' => [
+                                                    'top' => $product->topNotes->pluck('name')->toArray(),
+                                                    'middle' => $product->middleNotes->pluck('name')->toArray(),
+                                                    'base' => $product->baseNotes->pluck('name')->toArray(),
+                                                ],
+                                                'product_url' => url("/products/{$product->slug}"),
+                                            ];
+                                        }
+                                    }
+
+                                    $discountId = $get('discount_id');
+                                    if ($discountId) {
+                                        $discount = \App\Models\Discount::find($discountId);
+                                        if ($discount) {
+                                            $context['discount_code'] = $discount->code;
+                                            $context['discount_value'] = $discount->formatted_value;
+                                            $context['discount_description'] = $discount->description;
+                                        }
+                                    }
+
+                                    $service = app(SocialMediaService::class);
+                                    $result = $service->generateCaption($type, $context);
+
+                                    if ($result) {
+                                        $set('caption', $result['caption']);
+                                        $set('hashtags', $result['hashtags']);
+                                        Notification::make()
+                                            ->title('Caption generated successfully!')
+                                            ->success()
+                                            ->send();
+                                    } else {
+                                        Notification::make()
+                                            ->title('Failed to generate caption')
+                                            ->body('Check your Anthropic API key in SEO Settings.')
+                                            ->danger()
+                                            ->send();
+                                    }
+                                }),
+                        ])->columnSpanFull(),
+
+                        Forms\Components\Textarea::make('caption')
+                            ->required()
+                            ->rows(6)
+                            ->maxLength(5000)
+                            ->columnSpanFull()
+                            ->helperText('The main text of your Facebook post. Use the AI button above to auto-generate.'),
+
+                        Forms\Components\Textarea::make('hashtags')
+                            ->rows(2)
+                            ->maxLength(1000)
+                            ->columnSpanFull()
+                            ->helperText('Hashtags will be appended after the caption.'),
+                    ])->columns(2),
+
+                Forms\Components\Section::make('Image')
+                    ->schema([
+                        Forms\Components\FileUpload::make('image_path')
+                            ->label('Post Image')
+                            ->image()
+                            ->disk('public')
+                            ->directory('social-posts')
+                            ->maxSize(5120)
+                            ->helperText('Upload a custom image, or leave empty to use the product image. Recommended: 1200x630px. Max 5MB.')
+                            ->columnSpanFull(),
+
+                        Forms\Components\Placeholder::make('product_image_preview')
+                            ->label('Product Image (will be used if no custom image uploaded)')
+                            ->content(function ($get) {
+                                $productId = $get('product_id');
+                                if ($productId) {
+                                    $product = Product::find($productId);
+                                    if ($product && $product->image) {
+                                        return new \Illuminate\Support\HtmlString(
+                                            '<img src="' . e(\Storage::url($product->image)) . '" style="max-width:200px; border-radius:8px;" />'
+                                        );
+                                    }
+                                }
+                                return 'No product selected or product has no image.';
+                            })
+                            ->visible(fn ($get) => !empty($get('product_id')) && empty($get('image_path')))
+                            ->columnSpanFull(),
+                    ]),
+
+                Forms\Components\Section::make('Scheduling & Status')
+                    ->schema([
+                        Forms\Components\Select::make('status')
+                            ->options([
+                                'draft' => 'Draft',
+                                'scheduled' => 'Scheduled',
+                            ])
+                            ->default('draft')
+                            ->required()
+                            ->reactive(),
+
+                        Forms\Components\DateTimePicker::make('scheduled_at')
+                            ->label('Schedule For')
+                            ->visible(fn ($get) => $get('status') === 'scheduled')
+                            ->required(fn ($get) => $get('status') === 'scheduled')
+                            ->minDate(now())
+                            ->helperText('Post will be auto-published to Facebook at this time (UAE timezone).'),
+
+                        Forms\Components\Placeholder::make('source_display')
+                            ->label('Source')
+                            ->content(fn ($record) => $record?->source === 'auto_pilot' ? 'Auto-Pilot' : 'Manual')
+                            ->visibleOn('edit'),
+                    ])->columns(2),
+
+                Forms\Components\Section::make('Publishing Info')
+                    ->schema([
+                        Forms\Components\Placeholder::make('published_at_display')
+                            ->label('Published At')
+                            ->content(fn ($record) => $record?->published_at?->format('M d, Y H:i') ?? 'Not published yet'),
+
+                        Forms\Components\Placeholder::make('facebook_post_id_display')
+                            ->label('Facebook Post ID')
+                            ->content(fn ($record) => $record?->facebook_post_id ?? 'N/A'),
+
+                        Forms\Components\Placeholder::make('error_display')
+                            ->label('Error Message')
+                            ->content(fn ($record) => $record?->error_message ?? 'None')
+                            ->visible(fn ($record) => $record?->status === 'failed'),
+                    ])
+                    ->columns(2)
+                    ->collapsed()
+                    ->visibleOn('edit'),
+            ]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                Tables\Columns\TextColumn::make('type')
+                    ->badge()
+                    ->formatStateUsing(fn (string $state) => match ($state) {
+                        'product_promo' => 'Product',
+                        'offer' => 'Offer',
+                        'brand_story' => 'Brand Story',
+                        'custom' => 'Custom',
+                        default => ucfirst($state),
+                    })
+                    ->color(fn (string $state) => match ($state) {
+                        'product_promo' => 'primary',
+                        'offer' => 'success',
+                        'brand_story' => 'warning',
+                        'custom' => 'gray',
+                        default => 'gray',
+                    })
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('caption')
+                    ->limit(60)
+                    ->searchable()
+                    ->tooltip(fn ($record) => Str::limit($record->caption, 200)),
+
+                Tables\Columns\TextColumn::make('product.name')
+                    ->label('Product')
+                    ->limit(25)
+                    ->toggleable()
+                    ->placeholder('—'),
+
+                Tables\Columns\TextColumn::make('status')
+                    ->badge()
+                    ->color(fn (string $state) => match ($state) {
+                        'draft' => 'gray',
+                        'scheduled' => 'warning',
+                        'posting' => 'info',
+                        'published' => 'success',
+                        'failed' => 'danger',
+                        default => 'gray',
+                    })
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('source')
+                    ->badge()
+                    ->formatStateUsing(fn (string $state) => $state === 'auto_pilot' ? 'Auto' : 'Manual')
+                    ->color(fn (string $state) => $state === 'auto_pilot' ? 'info' : 'gray')
+                    ->toggleable(),
+
+                Tables\Columns\TextColumn::make('scheduled_at')
+                    ->label('Scheduled')
+                    ->dateTime('M d, Y H:i')
+                    ->sortable()
+                    ->placeholder('—'),
+
+                Tables\Columns\TextColumn::make('published_at')
+                    ->label('Published')
+                    ->dateTime('M d, Y H:i')
+                    ->sortable()
+                    ->placeholder('—'),
+            ])
+            ->defaultSort('created_at', 'desc')
+            ->filters([
+                Tables\Filters\SelectFilter::make('type')
+                    ->options([
+                        'product_promo' => 'Product Promotion',
+                        'offer' => 'Offer / Discount',
+                        'brand_story' => 'Brand Story',
+                        'custom' => 'Custom',
+                    ]),
+
+                Tables\Filters\SelectFilter::make('status')
+                    ->options([
+                        'draft' => 'Draft',
+                        'scheduled' => 'Scheduled',
+                        'posting' => 'Posting',
+                        'published' => 'Published',
+                        'failed' => 'Failed',
+                    ]),
+
+                Tables\Filters\SelectFilter::make('source')
+                    ->options([
+                        'manual' => 'Manual',
+                        'auto_pilot' => 'Auto-Pilot',
+                    ]),
+            ])
+            ->actions([
+                Tables\Actions\EditAction::make(),
+
+                Tables\Actions\Action::make('post_now')
+                    ->label('Post Now')
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('Post to Facebook Now?')
+                    ->modalDescription('This will immediately publish this post to your Facebook Page.')
+                    ->visible(fn ($record) => in_array($record->status, ['draft', 'scheduled', 'failed']))
+                    ->action(function ($record) {
+                        PublishSocialMediaPostJob::dispatch($record);
+                        Notification::make()
+                            ->title('Post queued for publishing!')
+                            ->success()
+                            ->send();
+                    }),
+
+                Tables\Actions\Action::make('retry')
+                    ->label('Retry')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->visible(fn ($record) => $record->status === 'failed')
+                    ->requiresConfirmation()
+                    ->action(function ($record) {
+                        $record->update(['status' => 'scheduled', 'error_message' => null]);
+                        PublishSocialMediaPostJob::dispatch($record);
+                        Notification::make()
+                            ->title('Post re-queued for publishing.')
+                            ->success()
+                            ->send();
+                    }),
+
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn ($record) => in_array($record->status, ['draft', 'failed'])),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make(),
+                ]),
+            ]);
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => Pages\ListSocialMediaPosts::route('/'),
+            'create' => Pages\CreateSocialMediaPost::route('/create'),
+            'edit' => Pages\EditSocialMediaPost::route('/{record}/edit'),
+        ];
+    }
+}

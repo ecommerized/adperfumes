@@ -46,7 +46,7 @@ class ProductController extends Controller
      */
     public function show($slug)
     {
-        $product = Product::with(['brand', 'topNotes', 'middleNotes', 'baseNotes', 'accords'])
+        $product = Product::with(['brand', 'topNotes', 'middleNotes', 'baseNotes', 'accords', 'seoMeta'])
             ->where('slug', $slug)
             ->where('status', true)
             ->firstOrFail();
@@ -59,7 +59,11 @@ class ProductController extends Controller
             ->take(4)
             ->get();
 
-        return view('products.show', compact('product', 'relatedProducts'));
+        return view('products.show', [
+            'product' => $product,
+            'relatedProducts' => $relatedProducts,
+            'seoModel' => $product,
+        ]);
     }
 
     /**
@@ -81,7 +85,7 @@ class ProductController extends Controller
      */
     public function byBrand($slug)
     {
-        $brand = Brand::where('slug', $slug)->where('status', true)->firstOrFail();
+        $brand = Brand::with('seoMeta')->where('slug', $slug)->where('status', true)->firstOrFail();
 
         $products = Product::with(['brand', 'accords'])
             ->where('brand_id', $brand->id)
@@ -90,6 +94,11 @@ class ProductController extends Controller
 
         $accords = Accord::all();
 
-        return view('products.by-brand', compact('brand', 'products', 'accords'));
+        return view('products.by-brand', [
+            'brand' => $brand,
+            'products' => $products,
+            'accords' => $accords,
+            'seoModel' => $brand,
+        ]);
     }
 }

@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BlogPost;
 use App\Models\Brand;
+use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
@@ -68,6 +70,38 @@ class SitemapController extends Controller
             $xml .= $this->urlEntry(
                 route('products.byBrand', $brand->slug),
                 $brand->updated_at->toW3cString(),
+                'weekly',
+                '0.7'
+            );
+        }
+
+        // Categories
+        $categories = Category::where('is_active', true)
+            ->select('slug', 'updated_at')
+            ->get();
+
+        foreach ($categories as $category) {
+            $xml .= $this->urlEntry(
+                url("/categories/{$category->slug}"),
+                $category->updated_at->toW3cString(),
+                'weekly',
+                '0.6'
+            );
+        }
+
+        // Blog index
+        $xml .= $this->urlEntry(route('blog.index'), null, 'daily', '0.7');
+
+        // Blog posts
+        $blogPosts = BlogPost::where('status', 'published')
+            ->select('slug', 'updated_at')
+            ->orderBy('published_at', 'desc')
+            ->get();
+
+        foreach ($blogPosts as $post) {
+            $xml .= $this->urlEntry(
+                route('blog.show', $post->slug),
+                $post->updated_at->toW3cString(),
                 'weekly',
                 '0.7'
             );

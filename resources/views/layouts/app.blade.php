@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', ($storeName ?? 'AD Perfumes') . ' - Luxury Fragrances in UAE')</title>
-    <meta name="description" content="@yield('description', 'Discover authentic luxury perfumes from world-renowned brands. Free shipping across UAE.')">
+    <title>@yield('title', ($seoModel ?? null)?->seoMeta?->meta_title ?? (($storeName ?? 'AD Perfumes') . ' - Luxury Fragrances in UAE'))</title>
+    @if(empty($seoModel))
+        <meta name="description" content="@yield('description', 'Discover authentic luxury perfumes from world-renowned brands. Free shipping across UAE.')">
+    @endif
+    <x-seo-aeo-head :model="$seoModel ?? null" />
     @if(!empty($googleSiteVerification))
         <meta name="google-site-verification" content="{{ $googleSiteVerification }}">
     @endif

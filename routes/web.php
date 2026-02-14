@@ -7,6 +7,7 @@ use App\Http\Controllers\CartController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PageController;
+use App\Http\Controllers\BlogController;
 use App\Http\Controllers\CatalogFeedController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\RobotsController;
@@ -52,6 +53,10 @@ Route::get('/wholesale', [PageController::class, 'wholesale'])->name('wholesale'
 Route::post('/wholesale', [PageController::class, 'wholesaleSubmit'])->name('wholesale.submit');
 Route::get('/flash-sale', [PageController::class, 'flashSale'])->name('flash-sale');
 Route::get('/gift-cards', [PageController::class, 'giftCards'])->name('gift-cards');
+
+// Blog
+Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
+Route::get('/blog/{slug}', [BlogController::class, 'show'])->name('blog.show');
 
 // Catalog Feeds
 Route::get('/feed/google', [CatalogFeedController::class, 'google'])->name('feed.google');

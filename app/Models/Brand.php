@@ -2,11 +2,48 @@
 
 namespace App\Models;
 
+use App\Traits\HasSeoAeo;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Brand extends Model
 {
+    use HasSeoAeo;
+
+    public function seoRelevantFields(): array
+    {
+        return ['name', 'description', 'slug'];
+    }
+
+    public function seoTitle(): string
+    {
+        return $this->name;
+    }
+
+    public function seoContent(): string
+    {
+        return $this->description ?? '';
+    }
+
+    public function seoUrl(): string
+    {
+        return route('products.byBrand', $this->slug);
+    }
+
+    public function seoContentType(): string
+    {
+        return 'brand';
+    }
+
+    public function seoCategory(): string
+    {
+        return 'Brands';
+    }
+
+    public function seoImages(): array
+    {
+        return $this->logo ? [\Storage::url($this->logo)] : [];
+    }
     /**
      * The attributes that are mass assignable.
      *

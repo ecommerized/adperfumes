@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\HasSeoAeo;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -10,6 +11,42 @@ use Illuminate\Support\Str;
 
 class Category extends Model
 {
+    use HasSeoAeo;
+
+    public function seoRelevantFields(): array
+    {
+        return ['name', 'slug'];
+    }
+
+    public function seoTitle(): string
+    {
+        return $this->name;
+    }
+
+    public function seoContent(): string
+    {
+        return '';
+    }
+
+    public function seoUrl(): string
+    {
+        return url("/categories/{$this->slug}");
+    }
+
+    public function seoContentType(): string
+    {
+        return 'category';
+    }
+
+    public function seoCategory(): string
+    {
+        return $this->parent?->name ?? 'Categories';
+    }
+
+    public function seoImages(): array
+    {
+        return $this->image ? [\Storage::url($this->image)] : [];
+    }
     /**
      * The attributes that are mass assignable.
      *
