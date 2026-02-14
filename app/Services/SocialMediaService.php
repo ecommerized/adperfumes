@@ -111,7 +111,7 @@ class SocialMediaService
     }
 
     /**
-     * Download image from URL and save to storage.
+     * Download image from URL, overlay brand logo, and save to storage.
      */
     protected function downloadAndSaveImage(string $url): ?string
     {
@@ -125,7 +125,24 @@ class SocialMediaService
             $filename = 'social-ai-' . time() . '-' . uniqid() . '.png';
             $path = 'social-posts/' . $filename;
 
+            // Save the base image first
+            $tempPath = sys_get_temp_dir() . '/' . $filename;
+            file_put_contents($tempPath, $imageContent);
+
+            // Overlay brand logo
+            $finalPath = $this->overlayBrandLogo($tempPath);
+
+            if ($finalPath) {
+                // Move to storage
+                \Storage::disk('public')->put($path, file_get_contents($finalPath));
+                @unlink($tempPath);
+                @unlink($finalPath);
+                return $path;
+            }
+
+            // Fallback: save without logo if overlay fails
             \Storage::disk('public')->put($path, $imageContent);
+            @unlink($tempPath);
 
             return $path;
         } catch (\Exception $e) {
@@ -135,40 +152,140 @@ class SocialMediaService
     }
 
     /**
+     * Overlay brand logo on the generated image.
+     */
+    protected function overlayBrandLogo(string $imagePath): ?string
+    {
+        try {
+            $settings = app(SettingsService::class);
+            $logoPath = $settings->get('store_logo');
+
+            if (empty($logoPath)) {
+                return $imagePath; // No logo to overlay
+            }
+
+            $logoFullPath = \Storage::disk('public')->path($logoPath);
+
+            if (!file_exists($logoFullPath)) {
+                return $imagePath; // Logo file not found
+            }
+
+            // Load the base image
+            $image = imagecreatefrompng($imagePath);
+            if (!$image) {
+                return $imagePath;
+            }
+
+            // Load the logo
+            $logoExt = pathinfo($logoFullPath, PATHINFO_EXTENSION);
+            $logo = match(strtolower($logoExt)) {
+                'png' => imagecreatefrompng($logoFullPath),
+                'jpg', 'jpeg' => imagecreatefromjpeg($logoFullPath),
+                'gif' => imagecreatefromgif($logoFullPath),
+                default => null,
+            };
+
+            if (!$logo) {
+                return $imagePath;
+            }
+
+            // Get dimensions
+            $imageWidth = imagesx($image);
+            $imageHeight = imagesy($image);
+            $logoWidth = imagesx($logo);
+            $logoHeight = imagesy($logo);
+
+            // Resize logo to 15% of image width
+            $newLogoWidth = (int)($imageWidth * 0.15);
+            $newLogoHeight = (int)($logoHeight * ($newLogoWidth / $logoWidth));
+
+            // Position logo at bottom-right with 30px padding
+            $x = $imageWidth - $newLogoWidth - 30;
+            $y = $imageHeight - $newLogoHeight - 30;
+
+            // Resize and merge
+            imagecopyresampled(
+                $image, $logo,
+                $x, $y, 0, 0,
+                $newLogoWidth, $newLogoHeight,
+                $logoWidth, $logoHeight
+            );
+
+            // Save
+            $outputPath = sys_get_temp_dir() . '/branded-' . basename($imagePath);
+            imagepng($image, $outputPath, 9);
+
+            // Cleanup
+            imagedestroy($image);
+            imagedestroy($logo);
+
+            return $outputPath;
+        } catch (\Exception $e) {
+            Log::error('SocialMediaService: Failed to overlay logo', ['message' => $e->getMessage()]);
+            return $imagePath; // Return original if overlay fails
+        }
+    }
+
+    /**
      * Build DALL-E 3 image generation prompt.
      */
     protected function buildImagePrompt(string $type, array $context): string
     {
-        $brandColors = '#C9A96E (luxury gold), #0A0A0A (black), #FAFAF8 (ivory)';
-
-        $basePrompt = "Create a luxury perfume social media post image with elegant design. ";
-        $basePrompt .= "Style: High-end, sophisticated, Instagram-worthy. ";
-        $basePrompt .= "Colors: Use gold (#C9A96E), black, and ivory tones. ";
-        $basePrompt .= "Include: Elegant typography, luxury aesthetic. ";
+        $basePrompt = "Create a luxury perfume social media post for Instagram/Facebook. ";
+        $basePrompt .= "IMPORTANT: Leave bottom-right corner clear (no text or objects) for logo placement. ";
+        $basePrompt .= "Style: Ultra-premium, sophisticated, magazine-quality. ";
+        $basePrompt .= "Colors: Dominant luxury gold (#C9A96E), obsidian black (#0A0A0A), ivory (#FAFAF8). ";
+        $basePrompt .= "Background: Elegant gradient or texture using these exact colors. ";
+        $basePrompt .= "Lighting: Professional studio lighting with warm golden highlights. ";
+        $basePrompt .= "Quality: Photorealistic, high-end commercial photography. ";
 
         switch ($type) {
             case 'product_promo':
                 $productName = $context['product_name'] ?? 'Luxury Perfume';
                 $brandName = $context['brand_name'] ?? '';
-                return $basePrompt . "Feature: {$productName}" .
-                       ($brandName ? " by {$brandName}" : "") .
-                       ". Show an elegant perfume bottle on a luxurious background. " .
-                       "Include subtle gold accents and sophisticated lighting.";
+                $price = $context['price'] ?? null;
+
+                $prompt = $basePrompt;
+                $prompt .= "Subject: Elegant perfume bottle centered or slightly left. ";
+                $prompt .= "Product: {$productName}" . ($brandName ? " by {$brandName}" : "") . ". ";
+                $prompt .= "Details: Show bottle with premium packaging, golden reflections on glass. ";
+                $prompt .= "Composition: Product name in elegant gold serif font (Cormorant Garamond style). ";
+                if ($price) {
+                    $prompt .= "Price display: 'AED {$price}' in subtle gold text. ";
+                }
+                $prompt .= "Background: Luxury marble or silk texture in gold and black tones. ";
+                $prompt .= "Props: Optional: Scattered gold leaves, precious stones, or silk fabric. ";
+                return $prompt;
 
             case 'offer':
                 $discountValue = $context['formatted_value'] ?? $context['discount_value'] ?? '20%';
-                return $basePrompt . "Feature: Special offer - {$discountValue} OFF. " .
-                       "Design: Bold discount badge with luxury perfume bottles. " .
-                       "Text: '{$discountValue} OFF' in elegant gold typography.";
+                $discountCode = $context['discount_code'] ?? '';
+
+                $prompt = $basePrompt;
+                $prompt .= "Subject: Special offer announcement with perfume bottles. ";
+                $prompt .= "Highlight: Large golden badge displaying '{$discountValue} OFF' in bold elegant typography. ";
+                if ($discountCode) {
+                    $prompt .= "Code: '{$discountCode}' in prominent golden frame. ";
+                }
+                $prompt .= "Composition: 1-2 perfume bottles with luxury packaging. ";
+                $prompt .= "Background: Dramatic black and gold gradient with bokeh lights. ";
+                $prompt .= "Urgency: Subtle 'Limited Time' text in gold. ";
+                return $prompt;
 
             case 'brand_story':
-                $brandName = $context['brand_name'] ?? 'AD Perfumes';
-                return $basePrompt . "Feature: {$brandName} brand story. " .
-                       "Design: Luxury perfume collection display with elegant branding. " .
-                       "Mood: Aspirational, premium, timeless.";
+                $brandName = $context['brand_name'] ?? 'Luxury Perfumes';
+
+                $prompt = $basePrompt;
+                $prompt .= "Subject: Elegant brand showcase for {$brandName}. ";
+                $prompt .= "Composition: 3-4 perfume bottles artfully arranged. ";
+                $prompt .= "Style: Timeless, heritage luxury brand aesthetic. ";
+                $prompt .= "Background: Premium textured surface (marble, leather, or silk) in gold and black. ";
+                $prompt .= "Mood: Aspirational, exclusive, sophisticated. ";
+                $prompt .= "Typography: Brand name '{$brandName}' in elegant serif font, gold foil effect. ";
+                return $prompt;
 
             default:
-                return $basePrompt . "Create an elegant luxury perfume promotional image.";
+                return $basePrompt . "Create an elegant luxury perfume promotional image with gold and black color scheme.";
         }
     }
 

@@ -161,24 +161,94 @@ class SocialMediaPostResource extends Resource
                             ->disk('public')
                             ->directory('social-posts')
                             ->maxSize(5120)
-                            ->helperText('Upload a custom image, or leave empty to use the product image. Recommended: 1200x630px. Max 5MB.')
+                            ->helperText('AI-generated image (with logo overlay) or upload custom. Recommended: 1024x1024px. Max 5MB.')
+                            ->imagePreviewHeight('300')
                             ->columnSpanFull(),
 
+                        Forms\Components\Placeholder::make('ai_image_info')
+                            ->label('AI Image Generation')
+                            ->content(function ($get) {
+                                $imagePath = $get('image_path');
+                                if ($imagePath && str_contains($imagePath, 'social-ai-')) {
+                                    return new \Illuminate\Support\HtmlString(
+                                        '<div style="padding: 12px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; color: #166534;">
+                                            <strong>✓ AI Image Generated</strong><br>
+                                            Image includes: DALL-E 3 design + Your brand logo overlay (bottom-right)
+                                        </div>'
+                                    );
+                                }
+                                return '';
+                            })
+                            ->visible(fn ($get) => !empty($get('image_path')) && str_contains($get('image_path'), 'social-ai-'))
+                            ->columnSpanFull(),
+
+                        Forms\Components\Actions::make([
+                            Forms\Components\Actions\Action::make('regenerate_image')
+                                ->label('Regenerate AI Image')
+                                ->icon('heroicon-o-arrow-path')
+                                ->color('warning')
+                                ->visible(fn ($get) => !empty($get('generate_ai_image')))
+                                ->action(function ($get, $set) {
+                                    $type = $get('type') ?? 'custom';
+                                    $context = [];
+
+                                    $productId = $get('product_id');
+                                    if ($productId) {
+                                        $product = Product::with(['brand', 'categories'])->find($productId);
+                                        if ($product) {
+                                            $context = [
+                                                'product_name' => $product->name,
+                                                'brand_name' => $product->brand?->name,
+                                                'price' => $product->price,
+                                            ];
+                                        }
+                                    }
+
+                                    $discountId = $get('discount_id');
+                                    if ($discountId) {
+                                        $discount = \App\Models\Discount::find($discountId);
+                                        if ($discount) {
+                                            $context['discount_code'] = $discount->code;
+                                            $context['discount_value'] = $discount->formatted_value;
+                                        }
+                                    }
+
+                                    $service = app(SocialMediaService::class);
+                                    $imagePath = $service->generateImage($type, $context);
+
+                                    if ($imagePath) {
+                                        $set('image_path', $imagePath);
+                                        Notification::make()
+                                            ->title('New image generated!')
+                                            ->success()
+                                            ->send();
+                                    } else {
+                                        Notification::make()
+                                            ->title('Image generation failed')
+                                            ->body('Check your OpenAI API key in settings.')
+                                            ->danger()
+                                            ->send();
+                                    }
+                                }),
+                        ])
+                        ->visible(fn ($get) => !empty($get('generate_ai_image')))
+                        ->columnSpanFull(),
+
                         Forms\Components\Placeholder::make('product_image_preview')
-                            ->label('Product Image (will be used if no custom image uploaded)')
+                            ->label('Product Image (will be used if no AI/custom image)')
                             ->content(function ($get) {
                                 $productId = $get('product_id');
                                 if ($productId) {
                                     $product = Product::find($productId);
                                     if ($product && $product->image) {
                                         return new \Illuminate\Support\HtmlString(
-                                            '<img src="' . e(\Storage::url($product->image)) . '" style="max-width:200px; border-radius:8px;" />'
+                                            '<img src="' . e(\Storage::url($product->image)) . '" style="max-width:200px; border-radius:8px; border: 2px solid #e5e7eb;" />'
                                         );
                                     }
                                 }
                                 return 'No product selected or product has no image.';
                             })
-                            ->visible(fn ($get) => !empty($get('product_id')) && empty($get('image_path')))
+                            ->visible(fn ($get) => !empty($get('product_id')) && empty($get('image_path')) && empty($get('generate_ai_image')))
                             ->columnSpanFull(),
                     ]),
 
