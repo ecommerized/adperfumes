@@ -99,7 +99,7 @@ class SocialMediaPostResource extends Resource
                                     if ($productId) {
                                         $product = Product::with(['brand', 'categories', 'topNotes', 'middleNotes', 'baseNotes'])->find($productId);
                                         if ($product) {
-                                            $context = [
+                                            $context = array_merge($context, [
                                                 'product_name' => $product->name,
                                                 'product_description' => mb_substr($product->description ?? '', 0, 500),
                                                 'brand_name' => $product->brand?->name,
@@ -114,7 +114,7 @@ class SocialMediaPostResource extends Resource
                                                 ],
                                                 'product_url' => url("/products/{$product->slug}"),
                                                 'product_image_path' => $product->image, // For actual product image in design
-                                            ];
+                                            ]);
                                         }
                                     }
 
@@ -122,9 +122,11 @@ class SocialMediaPostResource extends Resource
                                     if ($discountId) {
                                         $discount = \App\Models\Discount::find($discountId);
                                         if ($discount) {
-                                            $context['discount_code'] = $discount->code;
-                                            $context['discount_value'] = $discount->formatted_value;
-                                            $context['discount_description'] = $discount->description;
+                                            $context = array_merge($context, [
+                                                'discount_code' => $discount->code,
+                                                'discount_value' => $discount->formatted_value,
+                                                'discount_description' => $discount->description,
+                                            ]);
                                         }
                                     }
 
@@ -135,8 +137,9 @@ class SocialMediaPostResource extends Resource
                                         $set('caption', $result['caption']);
                                         $set('hashtags', $result['hashtags']);
 
+                                        // Store generated image path in a hidden field to avoid FileUpload foreach error
                                         if (isset($result['image_path'])) {
-                                            $set('image_path', $result['image_path']);
+                                            $set('generated_image_path', $result['image_path']);
                                         }
 
                                         Notification::make()
@@ -181,11 +184,14 @@ class SocialMediaPostResource extends Resource
                             ->live(false) // Disable reactive updates to avoid foreach error
                             ->columnSpanFull(),
 
+                        Forms\Components\Hidden::make('generated_image_path')
+                            ->dehydrateStateUsing(fn ($state) => $state),
+
                         Forms\Components\Placeholder::make('generated_image_preview')
                             ->label('Generated Image Preview')
                             ->reactive()
                             ->content(function ($get) {
-                                $imagePath = is_array($get('image_path')) ? ($get('image_path')[0] ?? '') : $get('image_path');
+                                $imagePath = $get('generated_image_path') ?: (is_array($get('image_path')) ? ($get('image_path')[0] ?? '') : $get('image_path'));
 
                                 if (empty($imagePath)) {
                                     return new \Illuminate\Support\HtmlString('<p style="color: #9ca3af; font-size: 13px;">No image generated yet. Click "Generate Caption & Image with AI" above.</p>');
