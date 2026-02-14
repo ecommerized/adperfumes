@@ -153,23 +153,42 @@ class SocialMediaService
             $ivory = imagecolorallocate($canvas, 250, 250, 248);
             $darkGold = imagecolorallocate($canvas, 160, 130, 70);
 
-            // Create elegant gradient background (black to dark gold)
+            // Create sophisticated radial gradient (dark center to gold edges)
             for ($y = 0; $y < 1024; $y++) {
-                $ratio = $y / 1024;
-                $r = (int)(10 + (160 - 10) * $ratio);
-                $g = (int)(10 + (130 - 10) * $ratio);
-                $b = (int)(10 + (70 - 10) * $ratio);
-                $color = imagecolorallocate($canvas, $r, $g, $b);
-                imagefilledrectangle($canvas, 0, $y, 1024, $y + 1, $color);
+                for ($x = 0; $x < 1024; $x++) {
+                    // Calculate distance from center
+                    $dx = $x - 512;
+                    $dy = $y - 512;
+                    $distance = sqrt($dx * $dx + $dy * $dy);
+                    $maxDistance = 724; // sqrt(512^2 + 512^2)
+
+                    // Smooth gradient from center to edge
+                    $ratio = min($distance / $maxDistance, 1);
+                    $ratio = $ratio * $ratio; // Quadratic easing for smoother gradient
+
+                    $r = (int)(10 + (95 - 10) * $ratio); // Darker, richer tone
+                    $g = (int)(10 + (80 - 10) * $ratio);
+                    $b = (int)(10 + (50 - 10) * $ratio);
+
+                    $color = imagecolorallocate($canvas, $r, $g, $b);
+                    imagesetpixel($canvas, $x, $y, $color);
+                }
             }
 
-            // Add subtle texture/noise for luxury feel
-            for ($i = 0; $i < 500; $i++) {
-                $x = rand(0, 1024);
-                $y = rand(0, 1024);
-                $alpha = rand(20, 50);
-                $noise = imagecolorallocatealpha($canvas, 255, 255, 255, $alpha);
-                imagesetpixel($canvas, $x, $y, $noise);
+            // Add elegant golden vignette/glow at edges
+            for ($i = 0; $i < 300; $i++) {
+                $edge = rand(0, 3); // 0=top, 1=right, 2=bottom, 3=left
+                $pos = rand(0, 1024);
+                $depth = rand(0, 150);
+                $alpha = rand(100, 120);
+                $glow = imagecolorallocatealpha($canvas, 201, 169, 110, $alpha);
+
+                match($edge) {
+                    0 => imagesetpixel($canvas, $pos, $depth, $glow), // top
+                    1 => imagesetpixel($canvas, 1024 - $depth, $pos, $glow), // right
+                    2 => imagesetpixel($canvas, $pos, 1024 - $depth, $glow), // bottom
+                    3 => imagesetpixel($canvas, $depth, $pos, $glow), // left
+                };
             }
 
             // Load product image
@@ -192,8 +211,8 @@ class SocialMediaService
             $prodWidth = imagesx($productImg);
             $prodHeight = imagesy($productImg);
 
-            // Calculate size to fit product (60% of canvas)
-            $maxSize = (int)(1024 * 0.6);
+            // Calculate size to fit product (70% of canvas for bigger product display)
+            $maxSize = (int)(1024 * 0.70);
             $scale = min($maxSize / $prodWidth, $maxSize / $prodHeight);
             $newProdWidth = (int)($prodWidth * $scale);
             $newProdHeight = (int)($prodHeight * $scale);
@@ -202,10 +221,18 @@ class SocialMediaService
             $prodX = (int)((1024 - $newProdWidth) / 2);
             $prodY = (int)((1024 - $newProdHeight) / 2);
 
-            // Add subtle shadow behind product
-            $shadowOffset = 15;
-            $shadow = imagecolorallocatealpha($canvas, 0, 0, 0, 50);
-            imagefilledellipse($canvas, $prodX + ($newProdWidth / 2) + $shadowOffset, $prodY + ($newProdHeight / 2) + $shadowOffset, $newProdWidth - 50, $newProdHeight - 50, $shadow);
+            // Add luxury multi-layer shadow
+            // Outer soft shadow
+            $shadowLarge = imagecolorallocatealpha($canvas, 0, 0, 0, 80);
+            imagefilledellipse($canvas, $prodX + ($newProdWidth / 2) + 20, $prodY + ($newProdHeight / 2) + 25, $newProdWidth + 40, $newProdHeight + 40, $shadowLarge);
+
+            // Mid shadow
+            $shadowMid = imagecolorallocatealpha($canvas, 0, 0, 0, 60);
+            imagefilledellipse($canvas, $prodX + ($newProdWidth / 2) + 12, $prodY + ($newProdHeight / 2) + 15, $newProdWidth + 20, $newProdHeight + 20, $shadowMid);
+
+            // Inner sharp shadow
+            $shadowInner = imagecolorallocatealpha($canvas, 0, 0, 0, 40);
+            imagefilledellipse($canvas, $prodX + ($newProdWidth / 2) + 5, $prodY + ($newProdHeight / 2) + 8, $newProdWidth, $newProdHeight, $shadowInner);
 
             // Place product image on canvas
             imagecopyresampled(
@@ -234,9 +261,28 @@ class SocialMediaService
                 imagestring($canvas, 5, $badgeX + 45, $badgeY + 80, 'OFF', $black);
             }
 
-            // Add golden accent lines at top and bottom
-            imagefilledrectangle($canvas, 0, 30, 1024, 35, $gold);
-            imagefilledrectangle($canvas, 0, 1024 - 35, 1024, 1024 - 30, $gold);
+            // Add elegant golden frame border (all sides)
+            $borderThickness = 8;
+            // Top border
+            imagefilledrectangle($canvas, 0, 0, 1024, $borderThickness, $gold);
+            // Bottom border
+            imagefilledrectangle($canvas, 0, 1024 - $borderThickness, 1024, 1024, $gold);
+            // Left border
+            imagefilledrectangle($canvas, 0, 0, $borderThickness, 1024, $gold);
+            // Right border
+            imagefilledrectangle($canvas, 1024 - $borderThickness, 0, 1024, 1024, $gold);
+
+            // Add inner ivory accent lines for luxury double-frame effect
+            $innerBorder = 16;
+            $ivoryAccent = imagecolorallocatealpha($canvas, 250, 250, 248, 30);
+            // Top
+            imageline($canvas, $innerBorder, $innerBorder, 1024 - $innerBorder, $innerBorder, $ivoryAccent);
+            // Bottom
+            imageline($canvas, $innerBorder, 1024 - $innerBorder, 1024 - $innerBorder, 1024 - $innerBorder, $ivoryAccent);
+            // Left
+            imageline($canvas, $innerBorder, $innerBorder, $innerBorder, 1024 - $innerBorder, $ivoryAccent);
+            // Right
+            imageline($canvas, 1024 - $innerBorder, $innerBorder, 1024 - $innerBorder, 1024 - $innerBorder, $ivoryAccent);
 
             // Save to temp file
             $filename = 'social-product-' . time() . '-' . uniqid() . '.png';

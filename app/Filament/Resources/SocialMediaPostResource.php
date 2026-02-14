@@ -165,31 +165,36 @@ class SocialMediaPostResource extends Resource
                             ->maxSize(5120)
                             ->helperText('AI will use actual product image with branded design, or generate with DALL-E 3, or upload custom. Recommended: 1024x1024px. Max 5MB.')
                             ->imagePreviewHeight('300')
+                            ->live(false) // Disable reactive updates to avoid foreach error
                             ->columnSpanFull(),
 
-                        Forms\Components\Placeholder::make('ai_image_info')
-                            ->label('Image Generation Info')
+                        Forms\Components\Placeholder::make('generated_image_preview')
+                            ->label('Generated Image Preview')
                             ->content(function ($get) {
                                 $imagePath = is_array($get('image_path')) ? ($get('image_path')[0] ?? '') : $get('image_path');
 
-                                if ($imagePath && str_contains($imagePath, 'social-product-')) {
-                                    return new \Illuminate\Support\HtmlString(
-                                        '<div style="padding: 12px; background: #eff6ff; border: 1px solid #60a5fa; border-radius: 6px; color: #1e40af;">
-                                            <strong>✓ Product Image Design</strong><br>
-                                            Branded design using: Actual product image + Brand colors + Logo overlay
-                                        </div>'
-                                    );
+                                if (empty($imagePath)) {
+                                    return '';
                                 }
 
-                                if ($imagePath && str_contains($imagePath, 'social-ai-')) {
-                                    return new \Illuminate\Support\HtmlString(
-                                        '<div style="padding: 12px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; color: #166534;">
-                                            <strong>✓ AI Image Generated</strong><br>
-                                            Image includes: DALL-E 3 design + Your brand logo overlay (bottom-right)
-                                        </div>'
-                                    );
+                                $imageUrl = \Storage::disk('public')->url($imagePath);
+                                $isProduct = str_contains($imagePath, 'social-product-');
+                                $isAI = str_contains($imagePath, 'social-ai-');
+
+                                $badge = '';
+                                if ($isProduct) {
+                                    $badge = '<div style="margin-bottom: 12px; padding: 10px; background: #eff6ff; border: 1px solid #60a5fa; border-radius: 6px; color: #1e40af; font-size: 13px;">
+                                        <strong>✓ Product Image Design</strong> - Using actual product photo with branded background
+                                    </div>';
+                                } elseif ($isAI) {
+                                    $badge = '<div style="margin-bottom: 12px; padding: 10px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; color: #166534; font-size: 13px;">
+                                        <strong>✓ AI Generated</strong> - DALL-E 3 design with logo overlay
+                                    </div>';
                                 }
-                                return '';
+
+                                return new \Illuminate\Support\HtmlString(
+                                    $badge . '<img src="' . e($imageUrl) . '" style="max-width: 100%; max-height: 400px; border-radius: 8px; border: 2px solid #e5e7eb; display: block;" />'
+                                );
                             })
                             ->visible(function ($get) {
                                 $imagePath = is_array($get('image_path')) ? ($get('image_path')[0] ?? '') : $get('image_path');
