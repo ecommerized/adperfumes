@@ -123,8 +123,8 @@ class SocialMediaPostResource extends Resource
                                         $set('hashtags', $result['hashtags']);
 
                                         if (isset($result['image_path'])) {
-                                            // FileUpload expects an array
-                                            $set('image_path', [$result['image_path']]);
+                                            // For saved files on disk, set as string path
+                                            $set('image_path', $result['image_path']);
                                         }
 
                                         Notification::make()
@@ -233,8 +233,8 @@ class SocialMediaPostResource extends Resource
                                     $imagePath = $service->generateImage($type, $context);
 
                                     if ($imagePath) {
-                                        // FileUpload expects an array
-                                        $set('image_path', [$imagePath]);
+                                        // For saved files on disk, set as string path
+                                        $set('image_path', $imagePath);
                                         Notification::make()
                                             ->title('New image generated!')
                                             ->success()

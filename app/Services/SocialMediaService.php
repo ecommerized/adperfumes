@@ -128,9 +128,20 @@ class SocialMediaService
             // Get full path to product image
             $fullPath = \Storage::disk('public')->path($productImagePath);
 
+            // If direct path doesn't exist, try to find it in subdirectories
             if (!file_exists($fullPath)) {
-                Log::warning('SocialMediaService: Product image not found', ['path' => $productImagePath]);
-                return null;
+                // Try to find the file in the products directory
+                $filename = basename($productImagePath);
+                $searchPattern = storage_path('app/public/products/*/' . $filename);
+                $foundFiles = glob($searchPattern);
+
+                if (!empty($foundFiles)) {
+                    $fullPath = $foundFiles[0];
+                    Log::info('SocialMediaService: Found product image in subdirectory', ['path' => $fullPath]);
+                } else {
+                    Log::warning('SocialMediaService: Product image not found', ['path' => $productImagePath, 'searched' => $searchPattern]);
+                    return null;
+                }
             }
 
             // Create 1024x1024 canvas with branded gradient background
