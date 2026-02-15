@@ -232,6 +232,7 @@
                 <div class="md:col-span-2">
                     <h4 class="text-[11px] font-semibold mb-6 uppercase tracking-editorial text-white">Support</h4>
                     <ul class="space-y-3">
+                        <li><a href="{{ route('order.track') }}" class="text-[13px] text-brand-muted hover:text-brand-primary transition-colors duration-300">Track Order</a></li>
                         <li><a href="{{ route('about') }}" class="text-[13px] text-brand-muted hover:text-brand-primary transition-colors duration-300">About Us</a></li>
                         <li><a href="{{ route('contact') }}" class="text-[13px] text-brand-muted hover:text-brand-primary transition-colors duration-300">Contact</a></li>
                         <li><a href="{{ route('shipping-policy') }}" class="text-[13px] text-brand-muted hover:text-brand-primary transition-colors duration-300">Shipping</a></li>

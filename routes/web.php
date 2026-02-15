@@ -38,8 +38,9 @@ Route::post('/checkout/process', [CheckoutController::class, 'process'])->name('
 Route::post('/payment/callback/tap', [PaymentController::class, 'tapCallback'])->name('payment.callback.tap');
 Route::get('/payment/return/tap', [PaymentController::class, 'tapReturn'])->name('payment.return.tap');
 
-// Order Confirmation
+// Order Confirmation & Tracking
 Route::get('/order/{orderNumber}', [PaymentController::class, 'orderConfirmation'])->name('order.confirmation');
+Route::get('/track-order', [PaymentController::class, 'trackOrder'])->name('order.track');
 
 // Static Pages
 Route::get('/about', [PageController::class, 'about'])->name('about');

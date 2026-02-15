@@ -169,6 +169,28 @@ class PaymentController extends Controller
     }
 
     /**
+     * Display order tracking page
+     */
+    public function trackOrder(Request $request)
+    {
+        $order = null;
+        $tracking = null;
+        $orderNumber = $request->query('order');
+
+        if ($orderNumber) {
+            $order = Order::where('order_number', $orderNumber)
+                ->orWhere('tracking_number', $orderNumber)
+                ->first();
+
+            if ($order && $order->tracking_number) {
+                $tracking = $this->aramexService->trackShipment($order->tracking_number);
+            }
+        }
+
+        return view('orders.track', compact('order', 'tracking', 'orderNumber'));
+    }
+
+    /**
      * Create Aramex shipment for paid order
      *
      * @param Order $order

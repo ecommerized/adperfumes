@@ -4,10 +4,12 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\OrderResource\Pages;
 use App\Models\Order;
+use App\Services\Shipping\AramexService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Infolists;
 use Filament\Infolists\Infolist;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -241,6 +243,12 @@ class OrderResource extends Resource
                         'refunded' => 'gray',
                         default => 'gray',
                     }),
+                Tables\Columns\TextColumn::make('tracking_number')
+                    ->label('AWB #')
+                    ->searchable()
+                    ->copyable()
+                    ->placeholder('Not generated')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Date')
                     ->dateTime('M d, Y H:i')
@@ -267,6 +275,61 @@ class OrderResource extends Resource
                     ]),
             ])
             ->actions([
+                Tables\Actions\Action::make('generateAwb')
+                    ->label('Generate AWB')
+                    ->icon('heroicon-o-truck')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('Generate Aramex AWB')
+                    ->modalDescription('This will create a shipment with Aramex and generate an AWB (Air Waybill) for this order.')
+                    ->visible(fn (Order $record): bool =>
+                        empty($record->tracking_number) &&
+                        in_array($record->status, ['confirmed', 'processing']) &&
+                        in_array($record->payment_status, ['paid', 'cod_pending'])
+                    )
+                    ->action(function (Order $record) {
+                        $aramexService = app(AramexService::class);
+
+                        $shipmentData = [
+                            'order_number' => $record->order_number,
+                            'full_name' => $record->full_name,
+                            'email' => $record->email,
+                            'phone' => $record->phone,
+                            'address' => $record->address,
+                            'city' => $record->city,
+                            'country' => $record->country,
+                            'postal_code' => $record->postal_code,
+                        ];
+
+                        $result = $aramexService->createShipment($shipmentData);
+
+                        if ($result['success']) {
+                            $record->update([
+                                'tracking_number' => $result['tracking_number'],
+                                'aramex_shipment_id' => $result['aramex_shipment_id'] ?? $result['tracking_number'],
+                                'status' => 'processing',
+                            ]);
+
+                            Notification::make()
+                                ->title('AWB Generated Successfully')
+                                ->body('Tracking #: ' . $result['tracking_number'])
+                                ->success()
+                                ->send();
+                        } else {
+                            Notification::make()
+                                ->title('AWB Generation Failed')
+                                ->body($result['message'] ?? 'Unknown error occurred')
+                                ->danger()
+                                ->send();
+                        }
+                    }),
+                Tables\Actions\Action::make('printLabel')
+                    ->label('Print Label')
+                    ->icon('heroicon-o-printer')
+                    ->color('info')
+                    ->visible(fn (Order $record): bool => !empty($record->tracking_number))
+                    ->url(fn (Order $record): string => 'https://www.aramex.com/track/results?ShipmentNumber=' . $record->tracking_number)
+                    ->openUrlInNewTab(),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])

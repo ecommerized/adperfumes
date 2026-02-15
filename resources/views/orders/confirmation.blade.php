@@ -126,6 +126,9 @@
             <x-button variant="outline" href="{{ route('home') }}">
                 Continue Shopping
             </x-button>
+            <x-button variant="outline" href="{{ route('order.track', ['order' => $order->order_number]) }}">
+                Track Order
+            </x-button>
             @if($order->payment_status === 'paid')
                 <x-button variant="primary" type="button" onclick="window.print()">
                     Print Order
