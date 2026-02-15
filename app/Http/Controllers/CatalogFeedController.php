@@ -4,21 +4,24 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Storage;
 
 class CatalogFeedController extends Controller
 {
     /**
      * Google Merchant Center XML feed.
-     * Includes ALL products with proper availability & inventory data.
+     * Only includes in-stock products with valid images.
      */
     public function google(): Response
     {
         $products = Product::where('status', true)
+            ->where('stock', '>', 0)
+            ->whereNotNull('image')
+            ->where('image', '!=', '')
             ->with('brand', 'categories')
             ->get();
 
-        $siteUrl = url('/');
+        // Use the actual request URL to build the base (works on live server regardless of APP_URL)
+        $siteUrl = request()->getSchemeAndHttpHost();
 
         $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         $xml .= '<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">' . "\n";
@@ -28,18 +31,13 @@ class CatalogFeedController extends Controller
         $xml .= '<description>Luxury fragrances from AD Perfumes - UAE</description>' . "\n";
 
         foreach ($products as $product) {
-            // Skip products without images (Google requires image_link)
-            if (empty($product->image)) {
-                continue;
-            }
-
             // Skip AVIF images (Google Merchant doesn't support AVIF)
             $imgExt = strtolower(pathinfo($product->image, PATHINFO_EXTENSION));
             if ($imgExt === 'avif') {
                 continue;
             }
 
-            $imageUrl = $this->getImageUrl($product->image);
+            $imageUrl = $this->buildImageUrl($product->image);
 
             $xml .= '<item>' . "\n";
 
@@ -55,29 +53,30 @@ class CatalogFeedController extends Controller
             $xml .= '<g:description>' . htmlspecialchars(mb_substr($description, 0, 5000)) . '</g:description>' . "\n";
 
             // Required: Product URL
-            $xml .= '<g:link>' . route('products.show', $product->slug) . '</g:link>' . "\n";
+            $xml .= '<g:link>' . $this->forceHttps(route('products.show', $product->slug)) . '</g:link>' . "\n";
 
-            // Required: Image - use direct URL (Google supports JPEG, PNG, GIF, WebP, BMP, TIFF)
+            // Required: Image
             $xml .= '<g:image_link>' . $imageUrl . '</g:image_link>' . "\n";
 
-            // Additional images from gallery
+            // Additional images from gallery (skip AVIF)
             if (!empty($product->gallery_images)) {
                 $additionalCount = 0;
                 foreach ($product->gallery_images as $galleryImage) {
                     if ($additionalCount >= 10) break;
                     if (!empty($galleryImage)) {
-                        $xml .= '<g:additional_image_link>' . $this->getImageUrl($galleryImage) . '</g:additional_image_link>' . "\n";
+                        $galExt = strtolower(pathinfo($galleryImage, PATHINFO_EXTENSION));
+                        if ($galExt === 'avif') continue;
+                        $xml .= '<g:additional_image_link>' . $this->buildImageUrl($galleryImage) . '</g:additional_image_link>' . "\n";
                         $additionalCount++;
                     }
                 }
             }
 
-            // Required: Availability based on actual stock
-            $xml .= '<g:availability>' . ($product->stock > 0 ? 'in_stock' : 'out_of_stock') . '</g:availability>' . "\n";
+            // Required: Availability (all in-stock since we filtered above)
+            $xml .= '<g:availability>in_stock</g:availability>' . "\n";
 
             // Required: Price
             if ($product->on_sale && $product->original_price && $product->original_price > $product->price) {
-                // When on sale: price = original, sale_price = current
                 $xml .= '<g:price>' . number_format($product->original_price, 2, '.', '') . ' AED</g:price>' . "\n";
                 $xml .= '<g:sale_price>' . number_format($product->price, 2, '.', '') . ' AED</g:sale_price>' . "\n";
             } else {
@@ -108,7 +107,7 @@ class CatalogFeedController extends Controller
                 $xml .= '<g:gender>' . ($genderMap[$product->gender] ?? 'unisex') . '</g:gender>' . "\n";
             }
 
-            // Age group (perfumes are adult products)
+            // Age group
             $xml .= '<g:age_group>adult</g:age_group>' . "\n";
 
             // Shipping: UAE targeting
@@ -128,17 +127,28 @@ class CatalogFeedController extends Controller
     }
 
     /**
-     * Get the public URL for an image path.
-     * Handles both storage paths and full URLs.
+     * Build an absolute HTTPS image URL using the request's actual domain.
+     * This ensures correct URLs on the live server regardless of APP_URL config.
      */
-    private function getImageUrl(string $imagePath): string
+    private function buildImageUrl(string $imagePath): string
     {
-        // If it's already a full URL, return as-is
         if (str_starts_with($imagePath, 'http://') || str_starts_with($imagePath, 'https://')) {
-            return $imagePath;
+            return $this->forceHttps($imagePath);
         }
 
-        return url(Storage::url($imagePath));
+        // Build URL from the request's actual host (not APP_URL which may be localhost)
+        $base = request()->getSchemeAndHttpHost();
+        $storageUrl = '/storage/' . ltrim($imagePath, '/');
+
+        return $this->forceHttps($base . $storageUrl);
+    }
+
+    /**
+     * Force HTTPS on any URL (Google Merchant requires HTTPS).
+     */
+    private function forceHttps(string $url): string
+    {
+        return preg_replace('/^http:\/\//', 'https://', $url);
     }
 
     /**
@@ -161,7 +171,7 @@ class CatalogFeedController extends Controller
                 'new',
                 number_format($product->price, 2, '.', '') . ' AED',
                 route('products.show', $product->slug),
-                $product->image ? $this->getImageUrl($product->image) : '',
+                $product->image ? $this->buildImageUrl($product->image) : '',
                 $this->csvEscape($product->brand->name ?? 'AD Perfumes'),
                 ($product->on_sale && $product->original_price && $product->original_price > $product->price) ? number_format($product->price, 2, '.', '') . ' AED' : '',
                 $product->categories->isNotEmpty() ? $this->csvEscape($product->categories->first()->name) : 'Perfume',
@@ -196,7 +206,7 @@ class CatalogFeedController extends Controller
                 'NEW',
                 number_format($product->price, 2, '.', '') . ' AED',
                 route('products.show', $product->slug),
-                $product->image ? $this->getImageUrl($product->image) : '',
+                $product->image ? $this->buildImageUrl($product->image) : '',
                 $this->csvEscape($product->brand->name ?? 'AD Perfumes'),
                 ($product->on_sale && $product->original_price && $product->original_price > $product->price) ? number_format($product->price, 2, '.', '') . ' AED' : '',
                 $product->categories->isNotEmpty() ? $this->csvEscape($product->categories->first()->name) : 'Perfume',
@@ -230,7 +240,7 @@ class CatalogFeedController extends Controller
                 'new',
                 number_format($product->price, 2, '.', '') . ' AED',
                 route('products.show', $product->slug),
-                $product->image ? $this->getImageUrl($product->image) : '',
+                $product->image ? $this->buildImageUrl($product->image) : '',
                 $this->csvEscape($product->brand->name ?? 'AD Perfumes'),
                 ($product->on_sale && $product->original_price && $product->original_price > $product->price) ? number_format($product->price, 2, '.', '') . ' AED' : '',
                 $product->categories->isNotEmpty() ? $this->csvEscape($product->categories->first()->name) : 'Perfume',
