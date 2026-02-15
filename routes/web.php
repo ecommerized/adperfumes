@@ -64,7 +64,6 @@ Route::get('/feed/google', [CatalogFeedController::class, 'google'])->name('feed
 Route::get('/feed/meta', [CatalogFeedController::class, 'meta'])->name('feed.meta');
 Route::get('/feed/tiktok', [CatalogFeedController::class, 'tiktok'])->name('feed.tiktok');
 Route::get('/feed/snapchat', [CatalogFeedController::class, 'snapchat'])->name('feed.snapchat');
-Route::get('/feed/image/{product}', [CatalogFeedController::class, 'feedImage'])->name('feed.image');
 
 // SEO
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');

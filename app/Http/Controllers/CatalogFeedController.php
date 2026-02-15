@@ -11,7 +11,6 @@ class CatalogFeedController extends Controller
     /**
      * Google Merchant Center XML feed.
      * Includes ALL products with proper availability & inventory data.
-     * Converts unsupported image formats (WebP/AVIF) to JPEG.
      */
     public function google(): Response
     {
@@ -34,11 +33,7 @@ class CatalogFeedController extends Controller
                 continue;
             }
 
-            // Get a Google-compatible image URL (JPEG/PNG/GIF only)
-            $imageUrl = $this->getGoogleImageUrl($product);
-            if (!$imageUrl) {
-                continue;
-            }
+            $imageUrl = $this->getImageUrl($product->image);
 
             $xml .= '<item>' . "\n";
 
@@ -56,17 +51,16 @@ class CatalogFeedController extends Controller
             // Required: Product URL
             $xml .= '<g:link>' . route('products.show', $product->slug) . '</g:link>' . "\n";
 
-            // Required: Image (Google-compatible format)
+            // Required: Image - use direct URL (Google supports JPEG, PNG, GIF, WebP, BMP, TIFF)
             $xml .= '<g:image_link>' . $imageUrl . '</g:image_link>' . "\n";
 
             // Additional images from gallery
             if (!empty($product->gallery_images)) {
                 $additionalCount = 0;
                 foreach ($product->gallery_images as $galleryImage) {
-                    if ($additionalCount >= 10) break; // Google allows max 10 additional
-                    $galleryUrl = $this->getGoogleCompatibleUrl($galleryImage);
-                    if ($galleryUrl) {
-                        $xml .= '<g:additional_image_link>' . $galleryUrl . '</g:additional_image_link>' . "\n";
+                    if ($additionalCount >= 10) break;
+                    if (!empty($galleryImage)) {
+                        $xml .= '<g:additional_image_link>' . $this->getImageUrl($galleryImage) . '</g:additional_image_link>' . "\n";
                         $additionalCount++;
                     }
                 }
@@ -128,102 +122,17 @@ class CatalogFeedController extends Controller
     }
 
     /**
-     * Serve a product image converted to JPEG for Google Merchant compatibility.
+     * Get the public URL for an image path.
+     * Handles both storage paths and full URLs.
      */
-    public function feedImage(Product $product): Response
+    private function getImageUrl(string $imagePath): string
     {
-        if (!$product->image || !Storage::exists($product->image)) {
-            abort(404);
+        // If it's already a full URL, return as-is
+        if (str_starts_with($imagePath, 'http://') || str_starts_with($imagePath, 'https://')) {
+            return $imagePath;
         }
 
-        $ext = strtolower(pathinfo($product->image, PATHINFO_EXTENSION));
-
-        // If already JPEG/PNG/GIF, redirect to the original
-        if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif'])) {
-            return response('', 302, ['Location' => url(Storage::url($product->image))]);
-        }
-
-        // Convert WebP/AVIF to JPEG
-        $cacheKey = 'feed_img_' . $product->id;
-        $cachedPath = 'feed-images/' . $product->id . '.jpg';
-
-        // Check if converted version already exists
-        if (Storage::exists($cachedPath)) {
-            $content = Storage::get($cachedPath);
-            return response($content, 200)
-                ->header('Content-Type', 'image/jpeg')
-                ->header('Cache-Control', 'public, max-age=604800');
-        }
-
-        // Convert image
-        $sourcePath = Storage::path($product->image);
-        $image = match ($ext) {
-            'webp' => @imagecreatefromwebp($sourcePath),
-            'avif' => @imagecreatefromavif($sourcePath),
-            'bmp' => @imagecreatefrombmp($sourcePath),
-            default => null,
-        };
-
-        if (!$image) {
-            abort(404);
-        }
-
-        // Save as JPEG
-        ob_start();
-        imagejpeg($image, null, 85);
-        $jpegData = ob_get_clean();
-        imagedestroy($image);
-
-        // Cache the converted image
-        Storage::put($cachedPath, $jpegData);
-
-        return response($jpegData, 200)
-            ->header('Content-Type', 'image/jpeg')
-            ->header('Cache-Control', 'public, max-age=604800');
-    }
-
-    /**
-     * Get a Google Merchant compatible image URL for a product.
-     * Returns direct URL for JPEG/PNG/GIF, conversion URL for WebP/AVIF.
-     */
-    private function getGoogleImageUrl(Product $product): ?string
-    {
-        if (empty($product->image)) {
-            return null;
-        }
-
-        $ext = strtolower(pathinfo($product->image, PATHINFO_EXTENSION));
-
-        // Supported formats - use direct URL
-        if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif'])) {
-            return url(Storage::url($product->image));
-        }
-
-        // Unsupported formats (WebP, AVIF) - use conversion route
-        if (in_array($ext, ['webp', 'avif', 'bmp'])) {
-            return route('feed.image', $product->id);
-        }
-
-        return null;
-    }
-
-    /**
-     * Get a Google-compatible URL for any image path.
-     */
-    private function getGoogleCompatibleUrl(string $imagePath): ?string
-    {
-        if (empty($imagePath)) {
-            return null;
-        }
-
-        $ext = strtolower(pathinfo($imagePath, PATHINFO_EXTENSION));
-
-        if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif'])) {
-            return url(Storage::url($imagePath));
-        }
-
-        // Skip unsupported formats for additional images (no conversion route for gallery)
-        return null;
+        return url(Storage::url($imagePath));
     }
 
     /**
@@ -246,7 +155,7 @@ class CatalogFeedController extends Controller
                 'new',
                 number_format($product->price, 2, '.', '') . ' AED',
                 route('products.show', $product->slug),
-                $product->image ? url(Storage::url($product->image)) : '',
+                $product->image ? $this->getImageUrl($product->image) : '',
                 $this->csvEscape($product->brand->name ?? 'AD Perfumes'),
                 ($product->on_sale && $product->original_price && $product->original_price > $product->price) ? number_format($product->price, 2, '.', '') . ' AED' : '',
                 $product->categories->isNotEmpty() ? $this->csvEscape($product->categories->first()->name) : 'Perfume',
@@ -281,7 +190,7 @@ class CatalogFeedController extends Controller
                 'NEW',
                 number_format($product->price, 2, '.', '') . ' AED',
                 route('products.show', $product->slug),
-                $product->image ? url(Storage::url($product->image)) : '',
+                $product->image ? $this->getImageUrl($product->image) : '',
                 $this->csvEscape($product->brand->name ?? 'AD Perfumes'),
                 ($product->on_sale && $product->original_price && $product->original_price > $product->price) ? number_format($product->price, 2, '.', '') . ' AED' : '',
                 $product->categories->isNotEmpty() ? $this->csvEscape($product->categories->first()->name) : 'Perfume',
@@ -315,7 +224,7 @@ class CatalogFeedController extends Controller
                 'new',
                 number_format($product->price, 2, '.', '') . ' AED',
                 route('products.show', $product->slug),
-                $product->image ? url(Storage::url($product->image)) : '',
+                $product->image ? $this->getImageUrl($product->image) : '',
                 $this->csvEscape($product->brand->name ?? 'AD Perfumes'),
                 ($product->on_sale && $product->original_price && $product->original_price > $product->price) ? number_format($product->price, 2, '.', '') . ' AED' : '',
                 $product->categories->isNotEmpty() ? $this->csvEscape($product->categories->first()->name) : 'Perfume',
