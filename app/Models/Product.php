@@ -164,7 +164,10 @@ class Product extends Model
      */
     public function topNotes(): BelongsToMany
     {
-        return $this->belongsToMany(Note::class, 'product_notes')->wherePivot('type', 'top');
+        return $this->belongsToMany(Note::class, 'product_notes')
+            ->withPivot('type')
+            ->wherePivot('type', 'top')
+            ->withPivotValue('type', 'top');
     }
 
     /**
@@ -172,7 +175,10 @@ class Product extends Model
      */
     public function middleNotes(): BelongsToMany
     {
-        return $this->belongsToMany(Note::class, 'product_notes')->wherePivot('type', 'middle');
+        return $this->belongsToMany(Note::class, 'product_notes')
+            ->withPivot('type')
+            ->wherePivot('type', 'middle')
+            ->withPivotValue('type', 'middle');
     }
 
     /**
@@ -180,7 +186,10 @@ class Product extends Model
      */
     public function baseNotes(): BelongsToMany
     {
-        return $this->belongsToMany(Note::class, 'product_notes')->wherePivot('type', 'base');
+        return $this->belongsToMany(Note::class, 'product_notes')
+            ->withPivot('type')
+            ->wherePivot('type', 'base')
+            ->withPivotValue('type', 'base');
     }
 
     /**
