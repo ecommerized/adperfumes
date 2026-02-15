@@ -141,39 +141,25 @@
                     <div>
                         <h2 class="text-[13px] font-bold uppercase tracking-luxury mb-4 text-brand-dark">5. Payment Method</h2>
                         <div class="bg-white border border-brand-border p-6 space-y-3">
-                            <label class="flex items-center justify-between p-4 border-2 border-brand-dark bg-brand-light cursor-pointer">
-                                <div class="flex items-center">
-                                    <input type="radio" name="payment_method" value="tap" checked
-                                           class="w-4 h-4 text-brand-dark focus:ring-brand-dark">
-                                    <div class="ml-3">
-                                        <p class="text-[13px] font-semibold text-brand-dark">Credit/Debit Card</p>
-                                        <p class="text-[11px] text-brand-muted">Pay securely with Tap Payments</p>
+                            @forelse($enabledPaymentMethods as $key => $method)
+                                <label class="flex items-center justify-between p-4 border-2 cursor-pointer transition-colors payment-method-label
+                                    {{ $loop->first ? 'border-brand-dark bg-brand-light' : 'border-brand-border hover:border-brand-dark' }}">
+                                    <div class="flex items-center">
+                                        <input type="radio" name="payment_method" value="{{ $key }}"
+                                               {{ $loop->first ? 'checked' : '' }}
+                                               class="w-4 h-4 text-brand-dark focus:ring-brand-dark">
+                                        <div class="ml-3">
+                                            <p class="text-[13px] font-semibold text-brand-dark">{{ $method['label'] }}</p>
+                                            <p class="text-[11px] text-brand-muted">{{ $method['description'] }}</p>
+                                        </div>
                                     </div>
-                                </div>
-                                <span class="text-[9px] font-bold text-white bg-brand-dark px-3 py-1 uppercase tracking-editorial">Selected</span>
-                            </label>
-
-                            <label class="flex items-center justify-between p-4 border-2 border-brand-border cursor-pointer hover:border-brand-dark transition-colors">
-                                <div class="flex items-center">
-                                    <input type="radio" name="payment_method" value="tabby"
-                                           class="w-4 h-4 text-brand-dark focus:ring-brand-dark">
-                                    <div class="ml-3">
-                                        <p class="text-[13px] font-semibold text-brand-dark">Tabby - Buy Now Pay Later</p>
-                                        <p class="text-[11px] text-brand-muted">Split into 4 interest-free payments</p>
-                                    </div>
-                                </div>
-                            </label>
-
-                            <label class="flex items-center justify-between p-4 border-2 border-brand-border cursor-pointer hover:border-brand-dark transition-colors">
-                                <div class="flex items-center">
-                                    <input type="radio" name="payment_method" value="tamara"
-                                           class="w-4 h-4 text-brand-dark focus:ring-brand-dark">
-                                    <div class="ml-3">
-                                        <p class="text-[13px] font-semibold text-brand-dark">Tamara - Buy Now Pay Later</p>
-                                        <p class="text-[11px] text-brand-muted">Pay in 3 installments, 0% interest</p>
-                                    </div>
-                                </div>
-                            </label>
+                                    @if($loop->first)
+                                        <span class="text-[9px] font-bold text-white bg-brand-dark px-3 py-1 uppercase tracking-editorial payment-selected-badge">Selected</span>
+                                    @endif
+                                </label>
+                            @empty
+                                <p class="text-[13px] text-brand-muted text-center py-4">No payment methods are currently available. Please contact support.</p>
+                            @endforelse
                         </div>
                     </div>
                 </div>
@@ -237,3 +223,25 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.querySelectorAll('input[name="payment_method"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        document.querySelectorAll('.payment-method-label').forEach(label => {
+            label.classList.remove('border-brand-dark', 'bg-brand-light');
+            label.classList.add('border-brand-border');
+            const badge = label.querySelector('.payment-selected-badge');
+            if (badge) badge.remove();
+        });
+        const selected = this.closest('.payment-method-label');
+        selected.classList.remove('border-brand-border');
+        selected.classList.add('border-brand-dark', 'bg-brand-light');
+        const badge = document.createElement('span');
+        badge.className = 'text-[9px] font-bold text-white bg-brand-dark px-3 py-1 uppercase tracking-editorial payment-selected-badge';
+        badge.textContent = 'Selected';
+        selected.appendChild(badge);
+    });
+});
+</script>
+@endpush

@@ -49,45 +49,84 @@ class AramexService
                 return $this->getFixedRate();
             }
 
+            $destCountry = $address['country'] ?? 'AE';
+            $isInternational = $destCountry !== 'AE';
+
             $payload = [
                 'ClientInfo' => $this->credentials,
                 'Transaction' => [
                     'Reference1' => 'Rate-' . time(),
+                    'Reference2' => '',
+                    'Reference3' => '',
+                    'Reference4' => '',
+                    'Reference5' => '',
                 ],
                 'OriginAddress' => [
                     'Line1' => 'AD Perfumes Warehouse',
+                    'Line2' => '',
+                    'Line3' => '',
                     'City' => 'Dubai',
+                    'StateOrProvinceCode' => '',
+                    'PostCode' => '',
                     'CountryCode' => 'AE',
+                    'Longitude' => 0,
+                    'Latitude' => 0,
+                    'BuildingNumber' => null,
+                    'BuildingName' => null,
+                    'Floor' => null,
+                    'Apartment' => null,
+                    'POBox' => null,
+                    'Description' => null,
                 ],
                 'DestinationAddress' => [
                     'Line1' => $address['address'] ?? '',
+                    'Line2' => '',
+                    'Line3' => '',
                     'City' => $address['city'] ?? 'Dubai',
-                    'CountryCode' => $address['country'] ?? 'AE',
+                    'StateOrProvinceCode' => '',
                     'PostCode' => $address['postal_code'] ?? '',
+                    'CountryCode' => $destCountry,
+                    'Longitude' => 0,
+                    'Latitude' => 0,
+                    'BuildingNumber' => null,
+                    'BuildingName' => null,
+                    'Floor' => null,
+                    'Apartment' => null,
+                    'POBox' => null,
+                    'Description' => null,
                 ],
                 'ShipmentDetails' => [
+                    'PaymentType' => 'P',
+                    'ProductGroup' => $isInternational ? 'EXP' : 'DOM',
+                    'ProductType' => $isInternational ? 'PPX' : 'ONP',
+                    'ActualWeight' => [
+                        'Unit' => 'KG',
+                        'Value' => max($weight, 0.5),
+                    ],
+                    'ChargeableWeight' => [
+                        'Unit' => 'KG',
+                        'Value' => max($weight, 0.5),
+                    ],
+                    'NumberOfPieces' => 1,
                     'Dimensions' => [
                         'Length' => 30,
                         'Width' => 20,
                         'Height' => 15,
                         'Unit' => 'CM',
                     ],
-                    'ActualWeight' => [
-                        'Value' => max($weight, 0.5),
-                        'Unit' => 'KG',
-                    ],
-                    'ChargeableWeight' => [
-                        'Value' => max($weight, 0.5),
-                        'Unit' => 'KG',
-                    ],
-                    'NumberOfPieces' => 1,
+                    'DescriptionOfGoods' => 'Perfumes',
+                    'GoodsOriginCountry' => 'AE',
+                    'PaymentOptions' => '',
                 ],
                 'PreferredCurrencyCode' => 'AED',
             ];
 
             $response = Http::timeout(30)
-                ->withHeaders(['Content-Type' => 'application/json'])
-                ->post($this->baseUrl . 'Service_1_0.svc/JSON/CalculateRate', $payload);
+                ->withHeaders([
+                    'Content-Type' => 'application/json',
+                    'Accept' => 'application/json',
+                ])
+                ->post($this->baseUrl . 'RateCalculator/Service_1_0.svc/json/CalculateRate', $payload);
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -97,7 +136,7 @@ class AramexService
                         'success' => true,
                         'rate' => (float) $data['TotalAmount']['Value'],
                         'currency' => $data['TotalAmount']['CurrencyCode'] ?? 'AED',
-                        'delivery_time' => '2-3 business days',
+                        'delivery_time' => $isInternational ? '5-7 business days' : '2-3 business days',
                         'service_type' => 'Express',
                     ];
                 }
@@ -139,44 +178,137 @@ class AramexService
                 ];
             }
 
+            $destCountry = $orderData['country'] ?? 'AE';
+            $isInternational = $destCountry !== 'AE';
+
             $payload = [
                 'ClientInfo' => $this->credentials,
                 'Transaction' => [
                     'Reference1' => $orderData['order_number'] ?? 'ORD-' . time(),
                     'Reference2' => $orderData['email'] ?? '',
+                    'Reference3' => '',
+                    'Reference4' => '',
+                    'Reference5' => '',
                 ],
                 'Shipments' => [
                     [
+                        'Reference1' => $orderData['order_number'] ?? '',
+                        'Reference2' => '',
+                        'Reference3' => '',
                         'Shipper' => [
                             'Reference1' => $orderData['order_number'] ?? '',
+                            'Reference2' => '',
                             'AccountNumber' => $this->credentials['AccountNumber'],
                             'PartyAddress' => [
                                 'Line1' => 'AD Perfumes',
-                                'Line2' => 'Warehouse Address',
+                                'Line2' => 'Warehouse',
+                                'Line3' => '',
                                 'City' => 'Dubai',
+                                'StateOrProvinceCode' => '',
+                                'PostCode' => '',
                                 'CountryCode' => 'AE',
+                                'Longitude' => 0,
+                                'Latitude' => 0,
+                                'BuildingNumber' => null,
+                                'BuildingName' => null,
+                                'Floor' => null,
+                                'Apartment' => null,
+                                'POBox' => null,
+                                'Description' => null,
                             ],
                             'Contact' => [
                                 'Department' => 'Shipping',
                                 'PersonName' => 'AD Perfumes',
+                                'Title' => '',
+                                'CompanyName' => 'AD Perfumes',
                                 'PhoneNumber1' => '+971 4 1234567',
+                                'PhoneNumber1Ext' => '',
+                                'PhoneNumber2' => '',
+                                'PhoneNumber2Ext' => '',
+                                'FaxNumber' => '',
+                                'CellPhone' => '+971 4 1234567',
                                 'EmailAddress' => 'shipping@adperfumes.com',
+                                'Type' => '',
                             ],
                         ],
                         'Consignee' => [
                             'Reference1' => $orderData['order_number'] ?? '',
+                            'Reference2' => '',
+                            'AccountNumber' => '',
                             'PartyAddress' => [
                                 'Line1' => $orderData['address'] ?? '',
+                                'Line2' => $orderData['address2'] ?? '',
+                                'Line3' => '',
                                 'City' => $orderData['city'] ?? '',
-                                'CountryCode' => $orderData['country'] ?? 'AE',
+                                'StateOrProvinceCode' => '',
                                 'PostCode' => $orderData['postal_code'] ?? '',
+                                'CountryCode' => $destCountry,
+                                'Longitude' => 0,
+                                'Latitude' => 0,
+                                'BuildingNumber' => null,
+                                'BuildingName' => null,
+                                'Floor' => null,
+                                'Apartment' => null,
+                                'POBox' => null,
+                                'Description' => null,
                             ],
                             'Contact' => [
+                                'Department' => '',
                                 'PersonName' => $orderData['full_name'] ?? '',
+                                'Title' => '',
+                                'CompanyName' => '',
                                 'PhoneNumber1' => $orderData['phone'] ?? '',
+                                'PhoneNumber1Ext' => '',
+                                'PhoneNumber2' => '',
+                                'PhoneNumber2Ext' => '',
+                                'FaxNumber' => '',
+                                'CellPhone' => $orderData['phone'] ?? '',
                                 'EmailAddress' => $orderData['email'] ?? '',
+                                'Type' => '',
                             ],
                         ],
+                        'ThirdParty' => [
+                            'Reference1' => '',
+                            'Reference2' => '',
+                            'AccountNumber' => '',
+                            'PartyAddress' => [
+                                'Line1' => '',
+                                'Line2' => '',
+                                'Line3' => '',
+                                'City' => '',
+                                'StateOrProvinceCode' => '',
+                                'PostCode' => '',
+                                'CountryCode' => '',
+                                'Longitude' => 0,
+                                'Latitude' => 0,
+                                'BuildingNumber' => null,
+                                'BuildingName' => null,
+                                'Floor' => null,
+                                'Apartment' => null,
+                                'POBox' => null,
+                                'Description' => null,
+                            ],
+                            'Contact' => [
+                                'Department' => '',
+                                'PersonName' => '',
+                                'Title' => '',
+                                'CompanyName' => '',
+                                'PhoneNumber1' => '',
+                                'PhoneNumber1Ext' => '',
+                                'PhoneNumber2' => '',
+                                'PhoneNumber2Ext' => '',
+                                'FaxNumber' => '',
+                                'CellPhone' => '',
+                                'EmailAddress' => '',
+                                'Type' => '',
+                            ],
+                        ],
+                        'ShippingDateTime' => '/Date(' . (time() * 1000) . ')/',
+                        'DueDate' => '/Date(' . ((time() + 86400 * 3) * 1000) . ')/',
+                        'Comments' => '',
+                        'PickupLocation' => '',
+                        'OperationsInstructions' => '',
+                        'AccountingInstrcutions' => '',
                         'Details' => [
                             'Dimensions' => [
                                 'Length' => 30,
@@ -185,12 +317,28 @@ class AramexService
                                 'Unit' => 'CM',
                             ],
                             'ActualWeight' => [
-                                'Value' => 1.0,
                                 'Unit' => 'KG',
+                                'Value' => $orderData['weight'] ?? 1.0,
                             ],
-                            'NumberOfPieces' => 1,
+                            'ChargeableWeight' => [
+                                'Unit' => 'KG',
+                                'Value' => $orderData['weight'] ?? 1.0,
+                            ],
                             'DescriptionOfGoods' => 'Perfumes',
                             'GoodsOriginCountry' => 'AE',
+                            'NumberOfPieces' => $orderData['pieces'] ?? 1,
+                            'ProductGroup' => $isInternational ? 'EXP' : 'DOM',
+                            'ProductType' => $isInternational ? 'PPX' : 'ONP',
+                            'PaymentType' => 'P',
+                            'PaymentOptions' => '',
+                            'CustomsValueAmount' => null,
+                            'CashOnDeliveryAmount' => null,
+                            'InsuranceAmount' => null,
+                            'CashAdditionalAmount' => null,
+                            'CashAdditionalAmountDescription' => '',
+                            'CollectAmount' => null,
+                            'Services' => '',
+                            'Items' => [],
                         ],
                     ],
                 ],
@@ -201,8 +349,11 @@ class AramexService
             ];
 
             $response = Http::timeout(30)
-                ->withHeaders(['Content-Type' => 'application/json'])
-                ->post($this->baseUrl . 'Service_1_0.svc/JSON/CreateShipments', $payload);
+                ->withHeaders([
+                    'Content-Type' => 'application/json',
+                    'Accept' => 'application/json',
+                ])
+                ->post($this->baseUrl . 'Shipping/Service_1_0.svc/json/CreateShipments', $payload);
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -231,6 +382,11 @@ class AramexService
                     ];
                 }
             }
+
+            Log::warning('Aramex Create Shipment Failed', [
+                'status' => $response->status(),
+                'response' => $response->json(),
+            ]);
 
             return [
                 'success' => false,
@@ -270,27 +426,39 @@ class AramexService
                 'ClientInfo' => $this->credentials,
                 'Transaction' => [
                     'Reference1' => 'Track-' . time(),
+                    'Reference2' => '',
+                    'Reference3' => '',
+                    'Reference4' => '',
+                    'Reference5' => '',
                 ],
                 'Shipments' => [$trackingNumber],
+                'GetLastTrackingUpdateOnly' => false,
             ];
 
             $response = Http::timeout(30)
-                ->withHeaders(['Content-Type' => 'application/json'])
-                ->post($this->baseUrl . 'Service_1_0.svc/JSON/TrackShipments', $payload);
+                ->withHeaders([
+                    'Content-Type' => 'application/json',
+                    'Accept' => 'application/json',
+                ])
+                ->post($this->baseUrl . 'Tracking/Service_1_0.svc/json/TrackShipments', $payload);
 
             if ($response->successful()) {
                 $data = $response->json();
 
-                if (isset($data['Results'][0])) {
-                    $trackingData = $data['Results'][0];
+                if (!empty($data['TrackingResults'])) {
+                    $result = $data['TrackingResults'][0];
 
-                    return [
-                        'success' => true,
-                        'status' => $trackingData['UpdateDescription'] ?? 'Unknown',
-                        'location' => $trackingData['UpdateLocation'] ?? '',
-                        'last_update' => $trackingData['UpdateDateTime'] ?? '',
-                        'events' => $trackingData['TrackingEvents'] ?? [],
-                    ];
+                    if (isset($result['Value']) && !empty($result['Value'])) {
+                        $latestEvent = $result['Value'][0] ?? null;
+
+                        return [
+                            'success' => true,
+                            'status' => $latestEvent['UpdateDescription'] ?? 'Unknown',
+                            'location' => $latestEvent['UpdateLocation'] ?? '',
+                            'last_update' => $latestEvent['UpdateDateTime'] ?? '',
+                            'events' => $result['Value'],
+                        ];
+                    }
                 }
             }
 

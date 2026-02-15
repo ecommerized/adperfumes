@@ -10,6 +10,7 @@ use App\Payments\TabbyPayment;
 use App\Payments\TamaraPayment;
 use App\Services\CheckoutCalculator;
 use App\Services\DiscountService;
+use App\Services\SettingsService;
 use App\Services\Shipping\AramexService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +24,7 @@ class CheckoutController extends Controller
     protected $tabbyPayment;
     protected $tamaraPayment;
     protected $discountService;
+    protected $settingsService;
 
     public function __construct(
         CheckoutCalculator $calculator,
@@ -30,7 +32,8 @@ class CheckoutController extends Controller
         TapPayment $tapPayment,
         TabbyPayment $tabbyPayment,
         TamaraPayment $tamaraPayment,
-        DiscountService $discountService
+        DiscountService $discountService,
+        SettingsService $settingsService
     ) {
         $this->calculator = $calculator;
         $this->aramexService = $aramexService;
@@ -38,6 +41,7 @@ class CheckoutController extends Controller
         $this->tabbyPayment = $tabbyPayment;
         $this->tamaraPayment = $tamaraPayment;
         $this->discountService = $discountService;
+        $this->settingsService = $settingsService;
     }
 
     /**
@@ -58,7 +62,10 @@ class CheckoutController extends Controller
         $cartItems = array_values($cart);
         $totals = $this->calculator->calculateTotals($cartItems, $shippingRate['rate']);
 
-        return view('checkout.index', compact('cart', 'totals', 'shippingRate'));
+        // Get enabled payment methods from admin settings
+        $enabledPaymentMethods = $this->getEnabledPaymentMethods();
+
+        return view('checkout.index', compact('cart', 'totals', 'shippingRate', 'enabledPaymentMethods'));
     }
 
     /**
@@ -66,6 +73,10 @@ class CheckoutController extends Controller
      */
     public function process(Request $request)
     {
+        // Build allowed payment methods dynamically from admin settings
+        $enabledPaymentMethods = $this->getEnabledPaymentMethods();
+        $allowedMethods = implode(',', array_keys($enabledPaymentMethods));
+
         $validated = $request->validate([
             'email' => 'required|email',
             'phone' => 'required',
@@ -76,7 +87,7 @@ class CheckoutController extends Controller
             'country' => 'required',
             'postal_code' => 'nullable',
             'discount_code' => 'nullable|string',
-            'payment_method' => 'nullable|string|in:tap,tabby,tamara',
+            'payment_method' => 'nullable|string|in:' . $allowedMethods,
         ]);
 
         $cart = session()->get('cart', []);
@@ -168,9 +179,11 @@ class CheckoutController extends Controller
             session()->forget('cart');
 
             // Process payment based on selected method
-            $paymentMethod = $validated['payment_method'] ?? 'tap';
+            $paymentMethod = $validated['payment_method'] ?? array_key_first($enabledPaymentMethods);
 
-            if ($paymentMethod === 'tap') {
+            if ($paymentMethod === 'cod') {
+                return $this->processWithCod($order);
+            } elseif ($paymentMethod === 'tap') {
                 return $this->processWithTap($order);
             } elseif ($paymentMethod === 'tabby') {
                 return $this->processWithTabby($order);
@@ -390,5 +403,58 @@ class CheckoutController extends Controller
             return redirect()->route('order.confirmation', $order->order_number)
                 ->with('error', 'Tamara payment gateway error occurred.');
         }
+    }
+
+    /**
+     * Process order with Cash on Delivery
+     */
+    protected function processWithCod(Order $order)
+    {
+        $order->update([
+            'payment_method' => 'cod',
+            'payment_status' => 'cod_pending',
+            'status' => 'confirmed',
+        ]);
+
+        return redirect()->route('order.confirmation', $order->order_number)
+            ->with('success', 'Order placed successfully! Payment will be collected on delivery.');
+    }
+
+    /**
+     * Get enabled payment methods from admin settings
+     */
+    protected function getEnabledPaymentMethods(): array
+    {
+        $methods = [];
+
+        if ((bool) $this->settingsService->get('payment_tap_enabled', true)) {
+            $methods['tap'] = [
+                'label' => 'Credit/Debit Card',
+                'description' => 'Pay securely with Tap Payments',
+            ];
+        }
+
+        if ((bool) $this->settingsService->get('payment_tabby_enabled', true)) {
+            $methods['tabby'] = [
+                'label' => 'Tabby - Buy Now Pay Later',
+                'description' => 'Split into 4 interest-free payments',
+            ];
+        }
+
+        if ((bool) $this->settingsService->get('payment_tamara_enabled', true)) {
+            $methods['tamara'] = [
+                'label' => 'Tamara - Buy Now Pay Later',
+                'description' => 'Pay in 3 installments, 0% interest',
+            ];
+        }
+
+        if ((bool) $this->settingsService->get('payment_cod_enabled', false)) {
+            $methods['cod'] = [
+                'label' => 'Cash on Delivery',
+                'description' => 'Pay when you receive your order',
+            ];
+        }
+
+        return $methods;
     }
 }

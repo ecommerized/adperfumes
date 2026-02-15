@@ -16,6 +16,10 @@ class ShippingSettings extends Page
 
     protected static ?int $navigationSort = 4;
 
+    protected static ?string $navigationLabel = 'Payment & Delivery';
+
+    protected static ?string $title = 'Payment & Delivery Settings';
+
     protected static string $view = 'filament.pages.shipping-settings';
 
     public ?array $data = [];
@@ -25,6 +29,13 @@ class ShippingSettings extends Page
         $settings = app(SettingsService::class);
 
         $this->form->fill([
+            // Payment method toggles
+            'payment_tap_enabled' => (bool) $settings->get('payment_tap_enabled', true),
+            'payment_tabby_enabled' => (bool) $settings->get('payment_tabby_enabled', true),
+            'payment_tamara_enabled' => (bool) $settings->get('payment_tamara_enabled', true),
+            'payment_cod_enabled' => (bool) $settings->get('payment_cod_enabled', false),
+
+            // Shipping settings
             'shipping_enabled' => $settings->get('shipping.enabled', true),
             'shipping_provider' => $settings->get('shipping.provider', 'flat_rate'),
             'shipping_flat_rate_amount' => $settings->get('shipping.flat_rate_amount'),
@@ -41,6 +52,30 @@ class ShippingSettings extends Page
     {
         return $form
             ->schema([
+                Forms\Components\Section::make('Payment Methods')
+                    ->description('Enable or disable payment methods shown during checkout.')
+                    ->schema([
+                        Forms\Components\Toggle::make('payment_tap_enabled')
+                            ->label('Tap Payments (Credit/Debit Card)')
+                            ->default(true)
+                            ->helperText('Visa, Mastercard, AMEX via Tap Payments'),
+
+                        Forms\Components\Toggle::make('payment_tabby_enabled')
+                            ->label('Tabby (Buy Now Pay Later)')
+                            ->default(true)
+                            ->helperText('Split into 4 interest-free payments (AED 200 - AED 10,000)'),
+
+                        Forms\Components\Toggle::make('payment_tamara_enabled')
+                            ->label('Tamara (Buy Now Pay Later)')
+                            ->default(true)
+                            ->helperText('Pay in 3 installments, 0% interest (AED 100 - AED 20,000)'),
+
+                        Forms\Components\Toggle::make('payment_cod_enabled')
+                            ->label('Cash on Delivery (COD)')
+                            ->default(false)
+                            ->helperText('Customer pays when receiving the order'),
+                    ])->columns(2),
+
                 Forms\Components\Section::make('Shipping Configuration')
                     ->schema([
                         Forms\Components\Toggle::make('shipping_enabled')

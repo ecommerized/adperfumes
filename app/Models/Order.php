@@ -62,15 +62,27 @@ class Order extends Model
     }
 
     /**
-     * Generate unique order number
+     * Generate unique order number starting from 1001
      */
     public static function generateOrderNumber(): string
     {
-        $prefix = 'ADP';
-        $timestamp = now()->format('YmdHis');
-        $random = strtoupper(substr(md5(uniqid(rand(), true)), 0, 4));
+        $lastOrder = static::orderBy('id', 'desc')->first();
 
-        return $prefix . '-' . $timestamp . '-' . $random;
+        if ($lastOrder && preg_match('/^ADP-(\d+)$/', $lastOrder->order_number, $matches)) {
+            $nextNumber = (int) $matches[1] + 1;
+        } else {
+            $nextNumber = max(1001, ($lastOrder ? $lastOrder->id : 0) + 1001);
+        }
+
+        $orderNumber = 'ADP-' . $nextNumber;
+
+        // Ensure uniqueness
+        while (static::where('order_number', $orderNumber)->exists()) {
+            $nextNumber++;
+            $orderNumber = 'ADP-' . $nextNumber;
+        }
+
+        return $orderNumber;
     }
 
     /**

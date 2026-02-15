@@ -25,10 +25,59 @@ class CustomerResource extends Resource
 
     protected static ?int $navigationSort = 1;
 
-    // No form - customers are auto-created from orders
-    public static function canCreate(): bool
+    public static function form(Form $form): Form
     {
-        return false;
+        return $form
+            ->schema([
+                Forms\Components\Section::make('Contact Information')
+                    ->schema([
+                        Forms\Components\TextInput::make('first_name')
+                            ->required()
+                            ->maxLength(255),
+
+                        Forms\Components\TextInput::make('last_name')
+                            ->required()
+                            ->maxLength(255),
+
+                        Forms\Components\TextInput::make('email')
+                            ->email()
+                            ->required()
+                            ->unique(ignoreRecord: true)
+                            ->maxLength(255),
+
+                        Forms\Components\TextInput::make('phone')
+                            ->tel()
+                            ->maxLength(50),
+                    ])->columns(2),
+
+                Forms\Components\Section::make('Address')
+                    ->schema([
+                        Forms\Components\TextInput::make('address')
+                            ->maxLength(500)
+                            ->columnSpanFull(),
+
+                        Forms\Components\TextInput::make('city')
+                            ->maxLength(255),
+
+                        Forms\Components\TextInput::make('country')
+                            ->maxLength(255)
+                            ->default('UAE'),
+
+                        Forms\Components\TextInput::make('postal_code')
+                            ->maxLength(20),
+                    ])->columns(3),
+
+                Forms\Components\Section::make('Marketing Preferences')
+                    ->schema([
+                        Forms\Components\Toggle::make('marketing_email_opt_in')
+                            ->label('Email Marketing')
+                            ->default(true),
+
+                        Forms\Components\Toggle::make('marketing_whatsapp_opt_in')
+                            ->label('WhatsApp Marketing')
+                            ->default(true),
+                    ])->columns(2),
+            ]);
     }
 
     public static function table(Table $table): Table
@@ -112,6 +161,7 @@ class CustomerResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
+                Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkAction::make('exportEmail')
@@ -215,7 +265,9 @@ class CustomerResource extends Resource
     {
         return [
             'index' => Pages\ListCustomers::route('/'),
+            'create' => Pages\CreateCustomer::route('/create'),
             'view' => Pages\ViewCustomer::route('/{record}'),
+            'edit' => Pages\EditCustomer::route('/{record}/edit'),
         ];
     }
 }
