@@ -33,37 +33,57 @@ class ConvertProductImages extends Command
         $products = $query->get();
         $this->info("Found {$products->count()} products with {$format} images to convert.");
 
+        if ($products->isEmpty()) {
+            return self::SUCCESS;
+        }
+
+        // Debug: show disk path
+        $this->info("Storage path: " . $disk->path(''));
+
         $converted = 0;
+        $skipped = 0;
         $failed = 0;
 
         foreach ($products as $product) {
             $sourcePath = $product->image;
-
-            if (!$disk->exists($sourcePath)) {
-                $this->warn("  SKIP: {$sourcePath} (file not found)");
-                $failed++;
-                continue;
-            }
-
             $ext = strtolower(pathinfo($sourcePath, PATHINFO_EXTENSION));
-            $newPath = preg_replace('/\.' . $ext . '$/', '.jpg', $sourcePath);
+            $newPath = preg_replace('/\.' . preg_quote($ext, '/') . '$/', '.jpg', $sourcePath);
 
-            // Skip if JPEG already exists
+            // If JPEG version already exists, just update the DB
             if ($disk->exists($newPath)) {
                 $product->update(['image' => $newPath]);
                 $converted++;
                 continue;
             }
 
-            $fullPath = $disk->path($sourcePath);
-            $image = match ($ext) {
-                'webp' => @imagecreatefromwebp($fullPath),
-                'avif' => @imagecreatefromavif($fullPath),
-                default => null,
-            };
+            if (!$disk->exists($sourcePath)) {
+                $this->warn("  SKIP: {$sourcePath} (file not found)");
+                $skipped++;
+                continue;
+            }
+
+            // Read file content and use imagecreatefromstring (auto-detects format)
+            $fileContent = $disk->get($sourcePath);
+            if (!$fileContent) {
+                $this->warn("  FAIL: {$sourcePath} (cannot read file)");
+                $failed++;
+                continue;
+            }
+
+            $image = @imagecreatefromstring($fileContent);
 
             if (!$image) {
-                $this->warn("  FAIL: {$sourcePath} (cannot read image)");
+                // Fallback: try format-specific function with full path
+                $fullPath = $disk->path($sourcePath);
+                $image = match ($ext) {
+                    'webp' => @imagecreatefromwebp($fullPath),
+                    'avif' => @imagecreatefromavif($fullPath),
+                    default => null,
+                };
+            }
+
+            if (!$image) {
+                $this->warn("  FAIL: {$sourcePath} (cannot decode image, size: " . strlen($fileContent) . " bytes)");
                 $failed++;
                 continue;
             }
@@ -74,16 +94,22 @@ class ConvertProductImages extends Command
             $jpegData = ob_get_clean();
             imagedestroy($image);
 
+            if (empty($jpegData)) {
+                $this->warn("  FAIL: {$sourcePath} (JPEG encoding failed)");
+                $failed++;
+                continue;
+            }
+
             $disk->put($newPath, $jpegData);
             $product->update(['image' => $newPath]);
             $converted++;
 
-            if ($converted % 100 === 0) {
+            if ($converted % 50 === 0) {
                 $this->info("  Converted {$converted} images...");
             }
         }
 
-        $this->info("Done! Converted: {$converted}, Failed: {$failed}");
+        $this->info("Done! Converted: {$converted}, Skipped: {$skipped}, Failed: {$failed}");
 
         return self::SUCCESS;
     }

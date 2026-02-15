@@ -33,6 +33,12 @@ class CatalogFeedController extends Controller
                 continue;
             }
 
+            // Skip AVIF images (Google Merchant doesn't support AVIF)
+            $imgExt = strtolower(pathinfo($product->image, PATHINFO_EXTENSION));
+            if ($imgExt === 'avif') {
+                continue;
+            }
+
             $imageUrl = $this->getImageUrl($product->image);
 
             $xml .= '<item>' . "\n";
