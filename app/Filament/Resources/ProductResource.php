@@ -71,7 +71,7 @@ class ProductResource extends Resource
                     ->schema([
                         Forms\Components\Select::make('topNotes')
                             ->label('Top Notes')
-                            ->relationship('notes', 'name', fn ($query) => $query->where('type', 'top'))
+                            ->relationship('topNotes', 'name')
                             ->multiple()
                             ->searchable()
                             ->preload()
@@ -79,7 +79,7 @@ class ProductResource extends Resource
 
                         Forms\Components\Select::make('middleNotes')
                             ->label('Middle Notes (Heart)')
-                            ->relationship('notes', 'name', fn ($query) => $query->where('type', 'middle'))
+                            ->relationship('middleNotes', 'name')
                             ->multiple()
                             ->searchable()
                             ->preload()
@@ -87,33 +87,18 @@ class ProductResource extends Resource
 
                         Forms\Components\Select::make('baseNotes')
                             ->label('Base Notes')
-                            ->relationship('notes', 'name', fn ($query) => $query->where('type', 'base'))
+                            ->relationship('baseNotes', 'name')
                             ->multiple()
                             ->searchable()
                             ->preload()
                             ->helperText('Long-lasting foundation notes'),
 
-                        Forms\Components\Repeater::make('accordsData')
+                        Forms\Components\Select::make('accords')
                             ->label('Accords')
-                            ->relationship('accords')
-                            ->schema([
-                                Forms\Components\Select::make('accord_id')
-                                    ->label('Accord')
-                                    ->relationship('accords', 'name')
-                                    ->searchable()
-                                    ->required()
-                                    ->distinct()
-                                    ->disableOptionsWhenSelectedInSiblingRepeaterItems(),
-
-                                Forms\Components\TextInput::make('percentage')
-                                    ->label('Percentage')
-                                    ->numeric()
-                                    ->suffix('%')
-                                    ->minValue(0)
-                                    ->maxValue(100)
-                                    ->helperText('Optional: strength of this accord'),
-                            ])
-                            ->columns(2)
+                            ->relationship('accords', 'name')
+                            ->multiple()
+                            ->searchable()
+                            ->preload()
                             ->helperText('Main fragrance accords (e.g., Woody, Floral, Citrus)')
                             ->columnSpanFull(),
                     ])->columns(3),

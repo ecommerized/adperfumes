@@ -58,3 +58,32 @@ Schedule::job(new GenerateAutoSocialPostJob(), 'seo')
     ->dailyAt('07:00')
     ->timezone('Asia/Dubai')
     ->withoutOverlapping();
+
+// ── Settlement Schedule ──────────
+
+// Daily 2:00 AM - Calculate settlement eligibility for delivered orders
+Schedule::command('settlements:calculate-eligibility')
+    ->dailyAt('02:00')
+    ->timezone('Asia/Dubai')
+    ->withoutOverlapping();
+
+// 1st, 8th, 15th, 22nd of each month at 6:00 AM - Process merchant settlements
+Schedule::command('settlements:process')
+    ->monthlyOn(1, '06:00')
+    ->timezone('Asia/Dubai')
+    ->withoutOverlapping();
+
+Schedule::command('settlements:process')
+    ->monthlyOn(8, '06:00')
+    ->timezone('Asia/Dubai')
+    ->withoutOverlapping();
+
+Schedule::command('settlements:process')
+    ->monthlyOn(15, '06:00')
+    ->timezone('Asia/Dubai')
+    ->withoutOverlapping();
+
+Schedule::command('settlements:process')
+    ->monthlyOn(22, '06:00')
+    ->timezone('Asia/Dubai')
+    ->withoutOverlapping();

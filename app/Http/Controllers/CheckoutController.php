@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Merchant;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\Product;
 use App\Payments\TapPayment;
 use App\Payments\TabbyPayment;
 use App\Payments\TamaraPayment;
 use App\Services\CheckoutCalculator;
+use App\Services\CommissionService;
 use App\Services\DiscountService;
 use App\Services\SettingsService;
 use App\Services\Shipping\AramexService;
@@ -25,6 +27,7 @@ class CheckoutController extends Controller
     protected $tamaraPayment;
     protected $discountService;
     protected $settingsService;
+    protected $commissionService;
 
     public function __construct(
         CheckoutCalculator $calculator,
@@ -33,7 +36,8 @@ class CheckoutController extends Controller
         TabbyPayment $tabbyPayment,
         TamaraPayment $tamaraPayment,
         DiscountService $discountService,
-        SettingsService $settingsService
+        SettingsService $settingsService,
+        CommissionService $commissionService
     ) {
         $this->calculator = $calculator;
         $this->aramexService = $aramexService;
@@ -42,6 +46,7 @@ class CheckoutController extends Controller
         $this->tamaraPayment = $tamaraPayment;
         $this->discountService = $discountService;
         $this->settingsService = $settingsService;
+        $this->commissionService = $commissionService;
     }
 
     /**
@@ -127,7 +132,7 @@ class CheckoutController extends Controller
                 'status' => 'pending',
             ]);
 
-            // Create order items with commission calculation
+            // Create order items with commission calculation via CommissionService
             foreach ($cart as $productId => $item) {
                 $merchantId = $item['merchant_id'] ?? null;
                 $commissionRate = null;
@@ -136,8 +141,16 @@ class CheckoutController extends Controller
 
                 if ($merchantId) {
                     $merchant = Merchant::find($merchantId);
-                    $commissionRate = $merchant ? $merchant->effective_commission : 15.00;
-                    $commissionAmount = round($subtotal * $commissionRate / 100, 2);
+                    $product = Product::find($item['product_id']);
+
+                    if ($merchant && $product) {
+                        $commissionInfo = $this->commissionService->resolveCommission($product, $merchant);
+                        $commissionRate = $commissionInfo['rate'];
+                        $commissionAmount = $this->commissionService->calculateAmount($subtotal, $commissionInfo);
+                    } else {
+                        $commissionRate = $merchant?->effective_commission ?? 15.00;
+                        $commissionAmount = round($subtotal * $commissionRate / 100, 2);
+                    }
                 }
 
                 OrderItem::create([

@@ -153,6 +153,54 @@ class Merchant extends Authenticatable implements FilamentUser
     }
 
     /**
+     * Get the settlements for the merchant.
+     */
+    public function settlements(): HasMany
+    {
+        return $this->hasMany(Settlement::class);
+    }
+
+    /**
+     * Get the refunds for the merchant.
+     */
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(Refund::class);
+    }
+
+    /**
+     * Get the invoices for the merchant.
+     */
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
+    /**
+     * Get the commission rules for the merchant.
+     */
+    public function commissionRules(): HasMany
+    {
+        return $this->hasMany(CommissionRule::class);
+    }
+
+    /**
+     * Get the debit notes for the merchant.
+     */
+    public function debitNotes(): HasMany
+    {
+        return $this->hasMany(MerchantDebitNote::class);
+    }
+
+    /**
+     * Get the payout reports for the merchant.
+     */
+    public function payoutReports(): HasMany
+    {
+        return $this->hasMany(PayoutReport::class);
+    }
+
+    /**
      * Get the effective commission rate (defaults to 15% if not set).
      */
     public function getEffectiveCommissionAttribute(): float

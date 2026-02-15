@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\OrderResource\Pages;
 use App\Models\Order;
+use App\Services\RefundService;
 use App\Services\Shipping\AramexService;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -40,6 +41,10 @@ class OrderResource extends Resource
                                 'shipped' => 'Shipped',
                                 'delivered' => 'Delivered',
                                 'cancelled' => 'Cancelled',
+                                'return_requested' => 'Return Requested',
+                                'return_approved' => 'Return Approved',
+                                'return_rejected' => 'Return Rejected',
+                                'returned' => 'Returned',
                                 'refunded' => 'Refunded',
                             ])
                             ->required(),
@@ -184,6 +189,29 @@ class OrderResource extends Resource
                     ])
                     ->columns(3),
 
+                Infolists\Components\Section::make('Delivery & Settlement')
+                    ->schema([
+                        Infolists\Components\TextEntry::make('delivered_at')
+                            ->dateTime()
+                            ->default('Not delivered'),
+                        Infolists\Components\TextEntry::make('settlement_eligible_at')
+                            ->label('Settlement Eligible')
+                            ->dateTime()
+                            ->default('N/A'),
+                        Infolists\Components\IconEntry::make('is_refund_eligible')
+                            ->label('Refund Eligible')
+                            ->boolean(),
+                        Infolists\Components\TextEntry::make('cancelled_at')
+                            ->dateTime()
+                            ->default('N/A')
+                            ->visible(fn (Order $record): bool => $record->status === 'cancelled'),
+                        Infolists\Components\TextEntry::make('cancellation_reason')
+                            ->default('N/A')
+                            ->visible(fn (Order $record): bool => $record->status === 'cancelled'),
+                    ])
+                    ->columns(3)
+                    ->collapsed(),
+
                 Infolists\Components\Section::make('Notes')
                     ->schema([
                         Infolists\Components\TextEntry::make('customer_notes')
@@ -264,6 +292,9 @@ class OrderResource extends Resource
                         'shipped' => 'Shipped',
                         'delivered' => 'Delivered',
                         'cancelled' => 'Cancelled',
+                        'return_requested' => 'Return Requested',
+                        'return_approved' => 'Return Approved',
+                        'returned' => 'Returned',
                         'refunded' => 'Refunded',
                     ]),
                 Tables\Filters\SelectFilter::make('payment_status')
@@ -330,6 +361,51 @@ class OrderResource extends Resource
                     ->visible(fn (Order $record): bool => !empty($record->tracking_number))
                     ->url(fn (Order $record): string => 'https://www.aramex.com/track/results?ShipmentNumber=' . $record->tracking_number)
                     ->openUrlInNewTab(),
+                Tables\Actions\Action::make('confirmDelivery')
+                    ->label('Confirm Delivery')
+                    ->icon('heroicon-o-check-badge')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalDescription('This will mark the order as delivered, set settlement eligibility (15 days), and generate invoices.')
+                    ->visible(fn (Order $record): bool => $record->status === 'shipped')
+                    ->action(function (Order $record) {
+                        $record->markDelivered();
+                        Notification::make()
+                            ->title('Order marked as delivered')
+                            ->body('Settlement eligible on: ' . $record->fresh()->settlement_eligible_at->format('M d, Y'))
+                            ->success()
+                            ->send();
+                    }),
+                Tables\Actions\Action::make('initiateRefund')
+                    ->label('Refund')
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Initiate Full Refund')
+                    ->modalDescription('This will create a full refund for all items in this order.')
+                    ->visible(fn (Order $record): bool =>
+                        in_array($record->status, ['delivered', 'confirmed', 'processing']) &&
+                        $record->payment_status === 'paid' &&
+                        !$record->refunds()->whereIn('status', ['pending', 'approved', 'processed'])->exists()
+                    )
+                    ->action(function (Order $record) {
+                        $items = $record->items->map(fn ($item) => [
+                            'order_item_id' => $item->id,
+                            'quantity' => $item->quantity,
+                        ])->toArray();
+
+                        app(RefundService::class)->createRefund(
+                            $record, $items, 'full',
+                            initiatedBy: auth()->id(),
+                            reasonCategory: 'admin_initiated'
+                        );
+
+                        Notification::make()
+                            ->title('Refund initiated')
+                            ->body('A full refund has been created and is pending approval.')
+                            ->success()
+                            ->send();
+                    }),
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
             ])

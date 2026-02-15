@@ -251,6 +251,7 @@ class MerchantResource extends Resource
     {
         return [
             RelationManagers\ProductsRelationManager::class,
+            RelationManagers\SettlementsRelationManager::class,
         ];
     }
 

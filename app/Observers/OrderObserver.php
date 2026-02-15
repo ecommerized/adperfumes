@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\Customer;
 use App\Models\Order;
+use App\Services\InvoiceService;
 
 class OrderObserver
 {
@@ -40,6 +41,34 @@ class OrderObserver
     {
         if ($order->customer_id && $order->wasChanged('payment_status')) {
             $order->customer->updateStats();
+        }
+
+        // Auto-handle status changes
+        if ($order->wasChanged('status')) {
+            $newStatus = $order->status;
+
+            // On delivery: set delivered_at, settlement eligibility, generate invoices
+            if ($newStatus === 'delivered' && !$order->delivered_at) {
+                $order->updateQuietly([
+                    'delivered_at' => now(),
+                    'settlement_eligible_at' => now()->addDays(15),
+                    'is_refund_eligible' => true,
+                ]);
+
+                // Generate invoices (one per merchant)
+                try {
+                    app(InvoiceService::class)->generateInvoicesForOrder($order);
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('Invoice generation failed for order #' . $order->order_number . ': ' . $e->getMessage());
+                }
+            }
+
+            // On cancellation: set cancelled_at
+            if ($newStatus === 'cancelled' && !$order->cancelled_at) {
+                $order->updateQuietly([
+                    'cancelled_at' => now(),
+                ]);
+            }
         }
     }
 
