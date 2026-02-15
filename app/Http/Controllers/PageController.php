@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Page;
 use App\Models\Product;
 use Illuminate\Http\Request;
 
@@ -9,37 +10,48 @@ class PageController extends Controller
 {
     public function about()
     {
-        return view('pages.about');
+        return $this->showPage('about', 'pages.about');
     }
 
     public function contact()
     {
-        return view('pages.contact');
+        return $this->showPage('contact', 'pages.contact');
     }
 
     public function terms()
     {
-        return view('pages.terms');
+        return $this->showPage('terms-conditions', 'pages.terms');
     }
 
     public function returnPolicy()
     {
-        return view('pages.return-policy');
+        return $this->showPage('return-refund-policy', 'pages.return-policy');
     }
 
     public function shippingPolicy()
     {
-        return view('pages.shipping-policy');
+        return $this->showPage('shipping-policy', 'pages.shipping-policy');
     }
 
     public function privacyPolicy()
     {
-        return view('pages.privacy-policy');
+        return $this->showPage('privacy-policy', 'pages.privacy-policy');
     }
 
     public function wholesale()
     {
-        return view('pages.wholesale');
+        return $this->showPage('wholesale', 'pages.wholesale');
+    }
+
+    private function showPage(string $slug, string $fallbackView)
+    {
+        $page = Page::where('slug', $slug)->where('is_active', true)->first();
+
+        if ($page) {
+            return view('pages.dynamic', compact('page'));
+        }
+
+        return view($fallbackView);
     }
 
     public function flashSale()
