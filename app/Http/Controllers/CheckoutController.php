@@ -447,14 +447,14 @@ class CheckoutController extends Controller
             ];
         }
 
-        if ((bool) $this->settingsService->get('payment_tabby_enabled', true)) {
+        if ((bool) $this->settingsService->get('payment_tabby_enabled', false)) {
             $methods['tabby'] = [
                 'label' => 'Tabby - Buy Now Pay Later',
                 'description' => 'Split into 4 interest-free payments',
             ];
         }
 
-        if ((bool) $this->settingsService->get('payment_tamara_enabled', true)) {
+        if ((bool) $this->settingsService->get('payment_tamara_enabled', false)) {
             $methods['tamara'] = [
                 'label' => 'Tamara - Buy Now Pay Later',
                 'description' => 'Pay in 3 installments, 0% interest',

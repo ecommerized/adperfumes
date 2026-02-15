@@ -46,7 +46,7 @@
     </div>
 
     <!-- Header -->
-    <header class="sticky top-0 z-50 bg-white border-b border-brand-border" x-data="{ mobileMenu: false }">
+    <header class="sticky top-0 z-50 bg-white border-b border-brand-border" x-data="{ mobileMenu: false, searchOpen: false }">
         <nav class="max-w-8xl mx-auto px-6 lg:px-10">
             <div class="flex justify-between items-center h-20">
                 <!-- Logo -->
@@ -90,7 +90,7 @@
                 <!-- Right Side -->
                 <div class="flex items-center gap-6">
                     <!-- Search -->
-                    <button class="text-brand-text hover:text-brand-primary transition-colors duration-300">
+                    <button @click="searchOpen = true" class="text-brand-text hover:text-brand-primary transition-colors duration-300">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                         </svg>
@@ -131,6 +131,16 @@
              x-transition:leave-end="opacity-0 -translate-y-1"
              class="lg:hidden border-t border-brand-border bg-white">
             <div class="max-w-8xl mx-auto px-6 py-6 space-y-1">
+                <!-- Mobile Search -->
+                <form action="{{ route('products.index') }}" method="GET" class="mb-4">
+                    <div class="relative">
+                        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        <input type="text" name="q" placeholder="Search perfumes, brands..." value="{{ request('q') }}"
+                               class="w-full pl-10 pr-4 py-3 border border-brand-border text-[13px] text-brand-text placeholder-brand-muted focus:outline-none focus:border-brand-dark transition-colors">
+                    </div>
+                </form>
                 <a href="{{ route('home') }}" class="block py-3 text-[14px] text-brand-text hover:text-brand-primary font-medium uppercase tracking-wide border-b border-brand-divider {{ request()->routeIs('home') ? 'text-brand-primary' : '' }}">Home</a>
                 <a href="{{ route('products.index') }}" class="block py-3 text-[14px] text-brand-text hover:text-brand-primary font-medium uppercase tracking-wide border-b border-brand-divider {{ request()->routeIs('products.*') ? 'text-brand-primary' : '' }}">Shop All</a>
                 <a href="{{ route('brands.index') }}" class="block py-3 text-[14px] text-brand-text hover:text-brand-primary font-medium uppercase tracking-wide border-b border-brand-divider {{ request()->routeIs('brands.*') ? 'text-brand-primary' : '' }}">Brands</a>
@@ -138,6 +148,38 @@
                 <a href="{{ route('gift-cards') }}" class="block py-3 text-[14px] text-brand-text hover:text-brand-primary font-medium uppercase tracking-wide border-b border-brand-divider {{ request()->routeIs('gift-cards') ? 'text-brand-primary' : '' }}">Gift Cards</a>
                 <a href="{{ route('wholesale') }}" class="block py-3 text-[14px] text-brand-text hover:text-brand-primary font-medium uppercase tracking-wide border-b border-brand-divider {{ request()->routeIs('wholesale') ? 'text-brand-primary' : '' }}">Wholesale</a>
                 <a href="{{ route('contact') }}" class="block py-3 text-[14px] text-brand-text hover:text-brand-primary font-medium uppercase tracking-wide {{ request()->routeIs('contact') ? 'text-brand-primary' : '' }}">Contact</a>
+            </div>
+        </div>
+
+        <!-- Search Overlay -->
+        <div x-show="searchOpen" x-cloak
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 -translate-y-2"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100 translate-y-0"
+             x-transition:leave-end="opacity-0 -translate-y-2"
+             class="absolute inset-x-0 top-full bg-white border-b border-brand-border shadow-lg z-50">
+            <div class="max-w-8xl mx-auto px-6 lg:px-10 py-6">
+                <form action="{{ route('products.index') }}" method="GET" class="flex items-center gap-4">
+                    <div class="flex-1 relative">
+                        <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-brand-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        <input type="text" name="q" placeholder="Search perfumes, brands..." value="{{ request('q') }}"
+                               x-ref="searchInput" @keydown.escape="searchOpen = false"
+                               x-init="$watch('searchOpen', value => { if(value) $nextTick(() => $refs.searchInput.focus()) })"
+                               class="w-full pl-12 pr-4 py-3.5 border border-brand-border text-[13px] text-brand-text placeholder-brand-muted focus:outline-none focus:border-brand-dark transition-colors">
+                    </div>
+                    <button type="submit" class="px-8 py-3.5 bg-brand-dark text-white text-[11px] font-semibold uppercase tracking-luxury hover:bg-brand-primary transition-colors duration-300">
+                        Search
+                    </button>
+                    <button type="button" @click="searchOpen = false" class="text-brand-muted hover:text-brand-dark transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </form>
             </div>
         </div>
     </header>

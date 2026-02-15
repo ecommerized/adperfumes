@@ -203,6 +203,12 @@ class ProductResource extends Resource
                 //
             ])
             ->actions([
+                Tables\Actions\Action::make('view_on_site')
+                    ->label('View')
+                    ->icon('heroicon-o-eye')
+                    ->color('gray')
+                    ->url(fn (Product $record) => route('products.show', $record->slug))
+                    ->openUrlInNewTab(),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([

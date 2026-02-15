@@ -10,7 +10,12 @@
         <h1 class="font-display text-[40px] lg:text-[52px] font-bold leading-tight mb-3">
             Shop All
         </h1>
-        <p class="text-[13px] text-brand-muted">{{ $products->total() }} luxury fragrances</p>
+        <p class="text-[13px] text-brand-muted">
+            {{ $products->total() }} luxury fragrances
+            @if(request('q'))
+                for "<span class="text-brand-primary">{{ request('q') }}</span>"
+            @endif
+        </p>
     </div>
 </div>
 
@@ -30,12 +35,12 @@
 
             <div class="flex items-center gap-3 w-full lg:w-auto">
                 <span class="text-[11px] text-brand-muted uppercase tracking-luxury">Sort by:</span>
-                <select class="border border-brand-border bg-white px-4 py-2.5 text-[11px] uppercase tracking-luxury font-medium focus:outline-none focus:border-brand-dark transition-colors">
-                    <option>Featured</option>
-                    <option>Price: Low to High</option>
-                    <option>Price: High to Low</option>
-                    <option>Name: A to Z</option>
-                    <option>Newest First</option>
+                <select onchange="window.location.href=this.value"
+                        class="border border-brand-border bg-white px-4 py-2.5 text-[11px] uppercase tracking-luxury font-medium focus:outline-none focus:border-brand-dark transition-colors">
+                    <option value="{{ request()->fullUrlWithQuery(['sort' => 'newest']) }}" {{ request('sort', 'newest') === 'newest' ? 'selected' : '' }}>Newest First</option>
+                    <option value="{{ request()->fullUrlWithQuery(['sort' => 'price_asc']) }}" {{ request('sort') === 'price_asc' ? 'selected' : '' }}>Price: Low to High</option>
+                    <option value="{{ request()->fullUrlWithQuery(['sort' => 'price_desc']) }}" {{ request('sort') === 'price_desc' ? 'selected' : '' }}>Price: High to Low</option>
+                    <option value="{{ request()->fullUrlWithQuery(['sort' => 'name_asc']) }}" {{ request('sort') === 'name_asc' ? 'selected' : '' }}>Name: A to Z</option>
                 </select>
             </div>
         </div>
