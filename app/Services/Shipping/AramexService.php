@@ -571,20 +571,26 @@ class AramexService
     }
 
     /**
-     * Get shipper (pickup) address from configuration
+     * Get shipper (pickup) address from database settings (with .env fallback)
      *
      * @return array
      */
     protected function getShipperAddress(): array
     {
+        $settings = app(\App\Services\SettingsService::class);
+
         return [
-            'Line1' => config('services.aramex.shipper_address', 'AD Perfumes'),
-            'Line2' => config('services.aramex.shipper_address_2', 'Warehouse'),
+            'Line1' => $settings->get('aramex.sender_address')
+                ?? config('services.aramex.shipper_address', 'AD Perfumes Warehouse'),
+            'Line2' => $settings->get('aramex.sender_address_2')
+                ?? config('services.aramex.shipper_address_2', ''),
             'Line3' => '',
-            'City' => config('services.aramex.shipper_city', 'Dubai'),
+            'City' => $settings->get('aramex.sender_city')
+                ?? config('services.aramex.shipper_city', 'Dubai'),
             'StateOrProvinceCode' => '',
-            'PostCode' => config('services.aramex.shipper_postal_code', ''),
-            'CountryCode' => 'AE',
+            'PostCode' => $settings->get('aramex.sender_postal_code')
+                ?? config('services.aramex.shipper_postal_code', ''),
+            'CountryCode' => $settings->get('aramex.country_code', 'AE'),
             'Longitude' => 0,
             'Latitude' => 0,
             'BuildingNumber' => null,
@@ -597,24 +603,31 @@ class AramexService
     }
 
     /**
-     * Get shipper contact details from configuration
+     * Get shipper contact details from database settings (with .env fallback)
      *
      * @return array
      */
     protected function getShipperContact(): array
     {
+        $settings = app(\App\Services\SettingsService::class);
+
         return [
             'Department' => 'Shipping',
-            'PersonName' => config('services.aramex.shipper_name', 'AD Perfumes'),
+            'PersonName' => $settings->get('aramex.sender_name')
+                ?? config('services.aramex.shipper_name', 'AD Perfumes'),
             'Title' => '',
-            'CompanyName' => config('services.aramex.shipper_company', 'AD Perfumes'),
-            'PhoneNumber1' => config('services.aramex.shipper_phone', '+971 4 1234567'),
+            'CompanyName' => $settings->get('aramex.sender_company')
+                ?? config('services.aramex.shipper_company', 'AD Perfumes'),
+            'PhoneNumber1' => $settings->get('aramex.sender_phone')
+                ?? config('services.aramex.shipper_phone', '+971 4 1234567'),
             'PhoneNumber1Ext' => '',
             'PhoneNumber2' => '',
             'PhoneNumber2Ext' => '',
             'FaxNumber' => '',
-            'CellPhone' => config('services.aramex.shipper_mobile', '+971 50 1234567'),
-            'EmailAddress' => config('services.aramex.shipper_email', 'shipping@adperfumes.com'),
+            'CellPhone' => $settings->get('aramex.sender_mobile')
+                ?? config('services.aramex.shipper_mobile', '+971 50 1234567'),
+            'EmailAddress' => $settings->get('aramex.sender_email')
+                ?? config('services.aramex.shipper_email', 'shipping@adperfumes.com'),
             'Type' => '',
         ];
     }

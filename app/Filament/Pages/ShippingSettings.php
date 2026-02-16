@@ -41,10 +41,18 @@ class ShippingSettings extends Page
             'shipping_flat_rate_amount' => $settings->get('shipping.flat_rate_amount'),
             'shipping_free_shipping_min' => $settings->get('shipping.free_shipping_min'),
             'shipping_default_weight_unit' => $settings->get('shipping.default_weight_unit', 'kg'),
+
+            // Aramex pickup address
             'aramex_country_code' => $settings->get('aramex.country_code', 'AE'),
-            'aramex_sender_city' => $settings->get('aramex.sender_city'),
-            'aramex_sender_postal_code' => $settings->get('aramex.sender_postal_code'),
+            'aramex_sender_company' => $settings->get('aramex.sender_company', 'AD Perfumes'),
+            'aramex_sender_name' => $settings->get('aramex.sender_name', 'AD Perfumes'),
             'aramex_sender_address' => $settings->get('aramex.sender_address'),
+            'aramex_sender_address_2' => $settings->get('aramex.sender_address_2'),
+            'aramex_sender_city' => $settings->get('aramex.sender_city', 'Dubai'),
+            'aramex_sender_postal_code' => $settings->get('aramex.sender_postal_code'),
+            'aramex_sender_phone' => $settings->get('aramex.sender_phone', '+971 4 1234567'),
+            'aramex_sender_mobile' => $settings->get('aramex.sender_mobile', '+971 50 1234567'),
+            'aramex_sender_email' => $settings->get('aramex.sender_email', 'shipping@adperfumes.com'),
         ]);
     }
 
@@ -127,38 +135,94 @@ class ShippingSettings extends Page
                                 - ARAMEX_USERNAME
                                 - ARAMEX_PASSWORD
                                 - ARAMEX_ACCOUNT_NUMBER
-                            '),
+                                - ARAMEX_ACCOUNT_PIN
+                                - ARAMEX_ACCOUNT_ENTITY
+                            ')
+                            ->columnSpanFull(),
 
-                        Forms\Components\Select::make('aramex_country_code')
-                            ->label('Sender Country Code')
-                            ->options([
-                                'AE' => 'United Arab Emirates (AE)',
-                                'SA' => 'Saudi Arabia (SA)',
-                                'KW' => 'Kuwait (KW)',
-                                'BH' => 'Bahrain (BH)',
-                                'QA' => 'Qatar (QA)',
-                                'OM' => 'Oman (OM)',
+                        Forms\Components\Fieldset::make('Pickup Address')
+                            ->schema([
+                                Forms\Components\TextInput::make('aramex_sender_company')
+                                    ->label('Company Name')
+                                    ->default('AD Perfumes')
+                                    ->maxLength(255)
+                                    ->required(),
+
+                                Forms\Components\TextInput::make('aramex_sender_name')
+                                    ->label('Contact Person Name')
+                                    ->default('AD Perfumes')
+                                    ->maxLength(255)
+                                    ->required(),
+
+                                Forms\Components\Textarea::make('aramex_sender_address')
+                                    ->label('Address Line 1')
+                                    ->rows(2)
+                                    ->required()
+                                    ->placeholder('Building name, street address')
+                                    ->columnSpanFull(),
+
+                                Forms\Components\TextInput::make('aramex_sender_address_2')
+                                    ->label('Address Line 2')
+                                    ->maxLength(255)
+                                    ->placeholder('Floor, unit number (optional)')
+                                    ->columnSpanFull(),
+
+                                Forms\Components\TextInput::make('aramex_sender_city')
+                                    ->label('City')
+                                    ->default('Dubai')
+                                    ->maxLength(255)
+                                    ->required(),
+
+                                Forms\Components\Select::make('aramex_country_code')
+                                    ->label('Country')
+                                    ->options([
+                                        'AE' => 'United Arab Emirates',
+                                        'SA' => 'Saudi Arabia',
+                                        'KW' => 'Kuwait',
+                                        'BH' => 'Bahrain',
+                                        'QA' => 'Qatar',
+                                        'OM' => 'Oman',
+                                    ])
+                                    ->default('AE')
+                                    ->required(),
+
+                                Forms\Components\TextInput::make('aramex_sender_postal_code')
+                                    ->label('Postal/ZIP Code')
+                                    ->maxLength(255)
+                                    ->helperText('Optional for UAE addresses'),
                             ])
-                            ->default('AE')
-                            ->required(),
+                            ->columns(3)
+                            ->columnSpanFull(),
 
-                        Forms\Components\TextInput::make('aramex_sender_city')
-                            ->label('Sender City')
-                            ->maxLength(255)
-                            ->required(),
+                        Forms\Components\Fieldset::make('Contact Information')
+                            ->schema([
+                                Forms\Components\TextInput::make('aramex_sender_phone')
+                                    ->label('Phone Number')
+                                    ->tel()
+                                    ->default('+971 4 1234567')
+                                    ->maxLength(255)
+                                    ->required()
+                                    ->placeholder('+971 4 XXXXXXX'),
 
-                        Forms\Components\TextInput::make('aramex_sender_postal_code')
-                            ->label('Sender Postal Code')
-                            ->maxLength(255)
-                            ->helperText('Optional for UAE addresses'),
+                                Forms\Components\TextInput::make('aramex_sender_mobile')
+                                    ->label('Mobile Number')
+                                    ->tel()
+                                    ->default('+971 50 1234567')
+                                    ->maxLength(255)
+                                    ->required()
+                                    ->placeholder('+971 50 XXXXXXX'),
 
-                        Forms\Components\Textarea::make('aramex_sender_address')
-                            ->label('Sender Address')
-                            ->rows(3)
-                            ->required()
+                                Forms\Components\TextInput::make('aramex_sender_email')
+                                    ->label('Email Address')
+                                    ->email()
+                                    ->default('shipping@adperfumes.com')
+                                    ->maxLength(255)
+                                    ->required(),
+                            ])
+                            ->columns(3)
                             ->columnSpanFull(),
                     ])
-                    ->columns(3)
+                    ->columns(1)
                     ->visible(fn (Forms\Get $get) => $get('shipping_provider') === 'aramex'),
             ])
             ->statePath('data');
