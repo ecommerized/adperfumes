@@ -233,8 +233,24 @@ class ShippingSettings extends Page
         $data = $this->form->getState();
         $settings = app(SettingsService::class);
 
+        // Map form field names to settings keys (convert underscores to dots for nested keys)
+        $keyMap = [
+            'aramex_country_code' => 'aramex.country_code',
+            'aramex_sender_company' => 'aramex.sender_company',
+            'aramex_sender_name' => 'aramex.sender_name',
+            'aramex_sender_address' => 'aramex.sender_address',
+            'aramex_sender_address_2' => 'aramex.sender_address_2',
+            'aramex_sender_city' => 'aramex.sender_city',
+            'aramex_sender_postal_code' => 'aramex.sender_postal_code',
+            'aramex_sender_phone' => 'aramex.sender_phone',
+            'aramex_sender_mobile' => 'aramex.sender_mobile',
+            'aramex_sender_email' => 'aramex.sender_email',
+        ];
+
         foreach ($data as $key => $value) {
-            $settings->set($key, $value);
+            // Use mapped key if exists, otherwise use original key
+            $settingKey = $keyMap[$key] ?? $key;
+            $settings->set($settingKey, $value);
         }
 
         Notification::make()
