@@ -248,20 +248,7 @@ class AramexService
                                 'POBox' => null,
                                 'Description' => null,
                             ],
-                            'Contact' => [
-                                'Department' => '',
-                                'PersonName' => $fullName,
-                                'Title' => '',
-                                'CompanyName' => '',
-                                'PhoneNumber1' => $phone,
-                                'PhoneNumber1Ext' => '',
-                                'PhoneNumber2' => '',
-                                'PhoneNumber2Ext' => '',
-                                'FaxNumber' => '',
-                                'CellPhone' => $phone,
-                                'EmailAddress' => $orderData['email'] ?? '',
-                                'Type' => '',
-                            ],
+                            'Contact' => $this->getConsigneeContact($fullName, $phone, $orderData['email'] ?? ''),
                         ],
                         'ThirdParty' => [
                             'Reference1' => '',
@@ -679,5 +666,66 @@ class AramexService
                 ?? config('services.aramex.shipper_email', 'shipping@adperfumes.com'),
             'Type' => '',
         ];
+    }
+
+    /**
+     * Get consignee contact details for shipment
+     *
+     * @param string $fullName Customer full name
+     * @param string $phone Customer phone number
+     * @param string $email Customer email
+     * @return array
+     */
+    protected function getConsigneeContact(string $fullName, string $phone, string $email = ''): array
+    {
+        Log::info('AramexService: Building consignee contact', [
+            'fullName_param' => $fullName,
+            'phone_param' => $phone,
+            'email_param' => $email,
+            'fullName_trimmed' => trim($fullName),
+            'phone_trimmed' => trim($phone),
+        ]);
+
+        // Ensure we have valid data
+        $trimmedName = trim($fullName);
+        $trimmedPhone = trim($phone);
+
+        if (empty($trimmedName)) {
+            Log::error('AramexService: Consignee name is empty in getConsigneeContact', [
+                'fullName_original' => $fullName,
+                'fullName_trimmed' => $trimmedName,
+            ]);
+            throw new \Exception('Consignee name cannot be empty');
+        }
+
+        if (empty($trimmedPhone)) {
+            Log::error('AramexService: Consignee phone is empty in getConsigneeContact', [
+                'phone_original' => $phone,
+                'phone_trimmed' => $trimmedPhone,
+            ]);
+            throw new \Exception('Consignee phone cannot be empty');
+        }
+
+        $contact = [
+            'Department' => '',
+            'PersonName' => $trimmedName,
+            'Title' => '',
+            'CompanyName' => '',
+            'PhoneNumber1' => $trimmedPhone,
+            'PhoneNumber1Ext' => '',
+            'PhoneNumber2' => '',
+            'PhoneNumber2Ext' => '',
+            'FaxNumber' => '',
+            'CellPhone' => $trimmedPhone,
+            'EmailAddress' => trim($email),
+            'Type' => '',
+        ];
+
+        Log::info('AramexService: Consignee contact built successfully', [
+            'PersonName' => $contact['PersonName'],
+            'PhoneNumber1' => $contact['PhoneNumber1'],
+        ]);
+
+        return $contact;
     }
 }
