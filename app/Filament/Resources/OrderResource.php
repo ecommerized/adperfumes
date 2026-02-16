@@ -193,17 +193,17 @@ class OrderResource extends Resource
                     ->schema([
                         Infolists\Components\TextEntry::make('delivered_at')
                             ->dateTime()
-                            ->default('Not delivered'),
+                            ->placeholder('Not delivered'),
                         Infolists\Components\TextEntry::make('settlement_eligible_at')
                             ->label('Settlement Eligible')
                             ->dateTime()
-                            ->default('N/A'),
+                            ->placeholder('N/A'),
                         Infolists\Components\IconEntry::make('is_refund_eligible')
                             ->label('Refund Eligible')
                             ->boolean(),
                         Infolists\Components\TextEntry::make('cancelled_at')
                             ->dateTime()
-                            ->default('N/A')
+                            ->placeholder('N/A')
                             ->visible(fn (Order $record): bool => $record->status === 'cancelled'),
                         Infolists\Components\TextEntry::make('cancellation_reason')
                             ->default('N/A')
