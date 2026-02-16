@@ -358,6 +358,51 @@ class AramexService
             if ($response->successful()) {
                 $data = $response->json();
 
+                // Log the full response for debugging
+                Log::info('Aramex API Response', [
+                    'response' => $data,
+                ]);
+
+                // Check for errors first
+                if (isset($data['HasErrors']) && $data['HasErrors']) {
+                    $errorMessages = [];
+
+                    // Extract error messages from various possible locations
+                    if (!empty($data['Notifications'])) {
+                        foreach ($data['Notifications'] as $notification) {
+                            if (isset($notification['Message'])) {
+                                $errorMessages[] = $notification['Message'];
+                            }
+                            if (isset($notification['Code'])) {
+                                $errorMessages[] = 'Code: ' . $notification['Code'];
+                            }
+                        }
+                    }
+
+                    if (!empty($data['Shipments'][0]['Notifications'])) {
+                        foreach ($data['Shipments'][0]['Notifications'] as $notification) {
+                            if (isset($notification['Message'])) {
+                                $errorMessages[] = $notification['Message'];
+                            }
+                        }
+                    }
+
+                    $errorMessage = !empty($errorMessages)
+                        ? implode('. ', $errorMessages)
+                        : 'Unknown error - check logs for details';
+
+                    Log::error('Aramex Shipment Creation Error', [
+                        'errors' => $errorMessages,
+                        'full_response' => $data,
+                    ]);
+
+                    return [
+                        'success' => false,
+                        'message' => 'Aramex Error: ' . $errorMessage,
+                    ];
+                }
+
+                // Check for successful shipment
                 if (isset($data['Shipments'][0])) {
                     $shipment = $data['Shipments'][0];
 
@@ -371,18 +416,9 @@ class AramexService
                         ];
                     }
                 }
-
-                // Check for errors
-                if (isset($data['HasErrors']) && $data['HasErrors']) {
-                    $errorMessage = $data['Notifications'][0]['Message'] ?? 'Unknown error';
-
-                    return [
-                        'success' => false,
-                        'message' => 'Aramex Error: ' . $errorMessage,
-                    ];
-                }
             }
 
+            // Log failed response
             Log::warning('Aramex Create Shipment Failed', [
                 'status' => $response->status(),
                 'response' => $response->json(),
@@ -390,7 +426,7 @@ class AramexService
 
             return [
                 'success' => false,
-                'message' => 'Failed to create shipment with Aramex',
+                'message' => 'Failed to create shipment with Aramex. Status: ' . $response->status(),
             ];
 
         } catch (Exception $e) {
