@@ -82,6 +82,17 @@ return [
         'base_url' => env('ARAMEX_IS_LIVE', false)
             ? 'https://ws.aramex.net/ShippingAPI.V2/'
             : 'https://ws.dev.aramex.net/ShippingAPI.V2/',
+
+        // Shipper (Pickup) Address Configuration
+        'shipper_company' => env('ARAMEX_SHIPPER_COMPANY', 'AD Perfumes'),
+        'shipper_name' => env('ARAMEX_SHIPPER_NAME', 'AD Perfumes'),
+        'shipper_address' => env('ARAMEX_SHIPPER_ADDRESS', 'Warehouse Address'),
+        'shipper_address_2' => env('ARAMEX_SHIPPER_ADDRESS_2', ''),
+        'shipper_city' => env('ARAMEX_SHIPPER_CITY', 'Dubai'),
+        'shipper_postal_code' => env('ARAMEX_SHIPPER_POSTAL_CODE', ''),
+        'shipper_phone' => env('ARAMEX_SHIPPER_PHONE', '+971 4 1234567'),
+        'shipper_mobile' => env('ARAMEX_SHIPPER_MOBILE', '+971 50 1234567'),
+        'shipper_email' => env('ARAMEX_SHIPPER_EMAIL', 'shipping@adperfumes.com'),
     ],
 
 ];

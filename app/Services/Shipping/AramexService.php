@@ -61,23 +61,7 @@ class AramexService
                     'Reference4' => '',
                     'Reference5' => '',
                 ],
-                'OriginAddress' => [
-                    'Line1' => 'AD Perfumes Warehouse',
-                    'Line2' => '',
-                    'Line3' => '',
-                    'City' => 'Dubai',
-                    'StateOrProvinceCode' => '',
-                    'PostCode' => '',
-                    'CountryCode' => 'AE',
-                    'Longitude' => 0,
-                    'Latitude' => 0,
-                    'BuildingNumber' => null,
-                    'BuildingName' => null,
-                    'Floor' => null,
-                    'Apartment' => null,
-                    'POBox' => null,
-                    'Description' => null,
-                ],
+                'OriginAddress' => $this->getShipperAddress(),
                 'DestinationAddress' => [
                     'Line1' => $address['address'] ?? '',
                     'Line2' => '',
@@ -178,7 +162,8 @@ class AramexService
                 ];
             }
 
-            $destCountry = $orderData['country'] ?? 'AE';
+            // Normalize country code to ISO 3166-1 alpha-2 format
+            $destCountry = $this->normalizeCountryCode($orderData['country'] ?? 'AE');
             $isInternational = $destCountry !== 'AE';
 
             $payload = [
@@ -199,37 +184,8 @@ class AramexService
                             'Reference1' => $orderData['order_number'] ?? '',
                             'Reference2' => '',
                             'AccountNumber' => $this->credentials['AccountNumber'],
-                            'PartyAddress' => [
-                                'Line1' => 'AD Perfumes',
-                                'Line2' => 'Warehouse',
-                                'Line3' => '',
-                                'City' => 'Dubai',
-                                'StateOrProvinceCode' => '',
-                                'PostCode' => '',
-                                'CountryCode' => 'AE',
-                                'Longitude' => 0,
-                                'Latitude' => 0,
-                                'BuildingNumber' => null,
-                                'BuildingName' => null,
-                                'Floor' => null,
-                                'Apartment' => null,
-                                'POBox' => null,
-                                'Description' => null,
-                            ],
-                            'Contact' => [
-                                'Department' => 'Shipping',
-                                'PersonName' => 'AD Perfumes',
-                                'Title' => '',
-                                'CompanyName' => 'AD Perfumes',
-                                'PhoneNumber1' => '+971 4 1234567',
-                                'PhoneNumber1Ext' => '',
-                                'PhoneNumber2' => '',
-                                'PhoneNumber2Ext' => '',
-                                'FaxNumber' => '',
-                                'CellPhone' => '+971 4 1234567',
-                                'EmailAddress' => 'shipping@adperfumes.com',
-                                'Type' => '',
-                            ],
+                            'PartyAddress' => $this->getShipperAddress(),
+                            'Contact' => $this->getShipperContact(),
                         ],
                         'Consignee' => [
                             'Reference1' => $orderData['order_number'] ?? '',
@@ -578,5 +534,88 @@ class AramexService
                 'message' => 'Pickup scheduling error: ' . $e->getMessage(),
             ];
         }
+    }
+
+    /**
+     * Normalize country code to ISO 3166-1 alpha-2 format
+     *
+     * @param string $country
+     * @return string
+     */
+    protected function normalizeCountryCode(string $country): string
+    {
+        // Map common country names/codes to ISO 3166-1 alpha-2
+        $countryMap = [
+            'UAE' => 'AE',
+            'United Arab Emirates' => 'AE',
+            'Saudi Arabia' => 'SA',
+            'KSA' => 'SA',
+            'Qatar' => 'QA',
+            'Bahrain' => 'BH',
+            'Kuwait' => 'KW',
+            'Oman' => 'OM',
+            'Egypt' => 'EG',
+            'Jordan' => 'JO',
+            'Lebanon' => 'LB',
+        ];
+
+        $upperCountry = strtoupper(trim($country));
+
+        // If it's already a 2-letter code, return it
+        if (strlen($upperCountry) === 2) {
+            return $upperCountry;
+        }
+
+        // Otherwise, look it up in the map
+        return $countryMap[$country] ?? $upperCountry;
+    }
+
+    /**
+     * Get shipper (pickup) address from configuration
+     *
+     * @return array
+     */
+    protected function getShipperAddress(): array
+    {
+        return [
+            'Line1' => config('services.aramex.shipper_address', 'AD Perfumes'),
+            'Line2' => config('services.aramex.shipper_address_2', 'Warehouse'),
+            'Line3' => '',
+            'City' => config('services.aramex.shipper_city', 'Dubai'),
+            'StateOrProvinceCode' => '',
+            'PostCode' => config('services.aramex.shipper_postal_code', ''),
+            'CountryCode' => 'AE',
+            'Longitude' => 0,
+            'Latitude' => 0,
+            'BuildingNumber' => null,
+            'BuildingName' => null,
+            'Floor' => null,
+            'Apartment' => null,
+            'POBox' => null,
+            'Description' => null,
+        ];
+    }
+
+    /**
+     * Get shipper contact details from configuration
+     *
+     * @return array
+     */
+    protected function getShipperContact(): array
+    {
+        return [
+            'Department' => 'Shipping',
+            'PersonName' => config('services.aramex.shipper_name', 'AD Perfumes'),
+            'Title' => '',
+            'CompanyName' => config('services.aramex.shipper_company', 'AD Perfumes'),
+            'PhoneNumber1' => config('services.aramex.shipper_phone', '+971 4 1234567'),
+            'PhoneNumber1Ext' => '',
+            'PhoneNumber2' => '',
+            'PhoneNumber2Ext' => '',
+            'FaxNumber' => '',
+            'CellPhone' => config('services.aramex.shipper_mobile', '+971 50 1234567'),
+            'EmailAddress' => config('services.aramex.shipper_email', 'shipping@adperfumes.com'),
+            'Type' => '',
+        ];
     }
 }
