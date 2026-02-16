@@ -13,13 +13,13 @@ class OrderStatusChanged extends Notification implements ShouldQueue
     use Queueable;
 
     protected Order $order;
-    protected string $oldStatus;
+    protected ?string $oldStatus;
     protected string $newStatus;
 
     /**
      * Create a new notification instance.
      */
-    public function __construct(Order $order, string $oldStatus, string $newStatus)
+    public function __construct(Order $order, ?string $oldStatus, string $newStatus)
     {
         $this->order = $order;
         $this->oldStatus = $oldStatus;

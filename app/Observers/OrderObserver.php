@@ -117,8 +117,9 @@ class OrderObserver
                 ]);
             }
 
-            // Send status change notification to customer
-            if ($order->customer) {
+            // Send status change notification to customer (only if old status exists)
+            // Don't send on initial order creation
+            if ($order->customer && $oldStatus !== null) {
                 try {
                     $order->customer->notify(new OrderStatusChanged($order, $oldStatus, $newStatus));
                 } catch (\Exception $e) {
