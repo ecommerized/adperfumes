@@ -49,7 +49,8 @@ class AramexService
                 return $this->getFixedRate();
             }
 
-            $destCountry = $address['country'] ?? 'AE';
+            // Normalize country code to ISO 3166-1 alpha-2 format
+            $destCountry = $this->normalizeCountryCode($address['country'] ?? 'AE');
             $isInternational = $destCountry !== 'AE';
 
             $payload = [
