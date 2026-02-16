@@ -162,6 +162,23 @@ class AramexService
                 ];
             }
 
+            // Validate required fields
+            $fullName = trim($orderData['full_name'] ?? '');
+            if (empty($fullName)) {
+                return [
+                    'success' => false,
+                    'message' => 'Customer name is required for shipment creation. Please ensure the order has a first name and last name.',
+                ];
+            }
+
+            $phone = trim($orderData['phone'] ?? '');
+            if (empty($phone)) {
+                return [
+                    'success' => false,
+                    'message' => 'Customer phone number is required for shipment creation.',
+                ];
+            }
+
             // Normalize country code to ISO 3166-1 alpha-2 format
             $destCountry = $this->normalizeCountryCode($orderData['country'] ?? 'AE');
             $isInternational = $destCountry !== 'AE';
@@ -210,15 +227,15 @@ class AramexService
                             ],
                             'Contact' => [
                                 'Department' => '',
-                                'PersonName' => $orderData['full_name'] ?? '',
+                                'PersonName' => $fullName,
                                 'Title' => '',
                                 'CompanyName' => '',
-                                'PhoneNumber1' => $orderData['phone'] ?? '',
+                                'PhoneNumber1' => $phone,
                                 'PhoneNumber1Ext' => '',
                                 'PhoneNumber2' => '',
                                 'PhoneNumber2Ext' => '',
                                 'FaxNumber' => '',
-                                'CellPhone' => $orderData['phone'] ?? '',
+                                'CellPhone' => $phone,
                                 'EmailAddress' => $orderData['email'] ?? '',
                                 'Type' => '',
                             ],
