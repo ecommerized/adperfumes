@@ -710,7 +710,7 @@ class AramexService
             'Department' => '',
             'PersonName' => $trimmedName,
             'Title' => '',
-            'CompanyName' => '',
+            'CompanyName' => $trimmedName,  // CRITICAL: Aramex requires CompanyName field populated
             'PhoneNumber1' => $trimmedPhone,
             'PhoneNumber1Ext' => '',
             'PhoneNumber2' => '',
@@ -723,6 +723,7 @@ class AramexService
 
         Log::info('AramexService: Consignee contact built successfully', [
             'PersonName' => $contact['PersonName'],
+            'CompanyName' => $contact['CompanyName'],
             'PhoneNumber1' => $contact['PhoneNumber1'],
         ]);
 
