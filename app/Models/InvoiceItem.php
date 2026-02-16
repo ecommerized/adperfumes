@@ -9,12 +9,12 @@ class InvoiceItem extends Model
 {
     protected $fillable = [
         'invoice_id', 'description', 'sku', 'quantity',
-        'unit_price_excl_tax', 'unit_price_incl_tax',
+        'unit_price', 'unit_price_incl_tax',
         'tax_rate', 'tax_amount', 'line_total',
     ];
 
     protected $casts = [
-        'unit_price_excl_tax' => 'decimal:2',
+        'unit_price' => 'decimal:2',
         'unit_price_incl_tax' => 'decimal:2',
         'tax_rate' => 'decimal:2',
         'tax_amount' => 'decimal:2',

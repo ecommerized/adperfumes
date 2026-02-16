@@ -15,7 +15,8 @@ class Invoice extends Model
         'invoice_number', 'order_id', 'merchant_id',
         'customer_name', 'customer_email', 'customer_phone', 'customer_address',
         'merchant_name', 'merchant_trn',
-        'subtotal', 'tax_rate', 'tax_amount', 'total_amount', 'currency',
+        'subtotal', 'tax_rate', 'tax_amount', 'shipping_amount', 'discount_amount',
+        'total', 'commission_amount', 'net_merchant_amount', 'currency',
         'status', 'pdf_path', 'sent_at', 'due_date',
     ];
 
@@ -25,7 +26,11 @@ class Invoice extends Model
         'subtotal' => 'decimal:2',
         'tax_rate' => 'decimal:2',
         'tax_amount' => 'decimal:2',
-        'total_amount' => 'decimal:2',
+        'shipping_amount' => 'decimal:2',
+        'discount_amount' => 'decimal:2',
+        'total' => 'decimal:2',
+        'commission_amount' => 'decimal:2',
+        'net_merchant_amount' => 'decimal:2',
     ];
 
     public function order(): BelongsTo

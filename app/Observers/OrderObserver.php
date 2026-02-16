@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\Merchant;
 use App\Models\Order;
 use App\Models\User;
+use App\Notifications\InvoiceGenerated;
 use App\Notifications\NewOrderNotification;
 use App\Notifications\OrderStatusChanged;
 use App\Services\InvoiceService;
@@ -38,8 +39,40 @@ class OrderObserver
         // Update customer stats
         $customer->updateStats();
 
+        // Generate invoices immediately when order is placed
+        $this->generateInvoicesForNewOrder($order);
+
         // Send notifications after order is fully created with items
         $this->sendNewOrderNotifications($order);
+    }
+
+    /**
+     * Generate invoices for new order and send to customer
+     */
+    protected function generateInvoicesForNewOrder(Order $order): void
+    {
+        try {
+            // Generate invoices (one per merchant)
+            $invoices = app(InvoiceService::class)->generateInvoicesForOrder($order);
+
+            // Generate PDF and send to customer for each invoice
+            foreach ($invoices as $invoice) {
+                // Generate PDF
+                app(InvoiceService::class)->generateInvoicePdf($invoice);
+
+                // Mark as sent
+                $invoice->update(['status' => 'sent', 'sent_at' => now()]);
+
+                // Send invoice to customer
+                if ($order->customer) {
+                    $order->customer->notify(new InvoiceGenerated($invoice));
+                }
+            }
+
+            \Illuminate\Support\Facades\Log::info('Generated and sent ' . count($invoices) . ' invoice(s) for order #' . $order->order_number);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Invoice generation failed for order #' . $order->order_number . ': ' . $e->getMessage());
+        }
     }
 
     /**
@@ -94,20 +127,13 @@ class OrderObserver
             $oldStatus = $order->getOriginal('status');
             $newStatus = $order->status;
 
-            // On delivery: set delivered_at, settlement eligibility, generate invoices
+            // On delivery: set delivered_at, settlement eligibility
             if ($newStatus === 'delivered' && !$order->delivered_at) {
                 $order->updateQuietly([
                     'delivered_at' => now(),
                     'settlement_eligible_at' => now()->addDays(15),
                     'is_refund_eligible' => true,
                 ]);
-
-                // Generate invoices (one per merchant)
-                try {
-                    app(InvoiceService::class)->generateInvoicesForOrder($order);
-                } catch (\Exception $e) {
-                    \Illuminate\Support\Facades\Log::error('Invoice generation failed for order #' . $order->order_number . ': ' . $e->getMessage());
-                }
             }
 
             // On cancellation: set cancelled_at
