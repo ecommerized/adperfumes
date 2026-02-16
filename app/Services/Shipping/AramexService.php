@@ -399,10 +399,19 @@ class AramexService
                     $shipment = $data['Shipments'][0];
 
                     if (isset($shipment['ID'])) {
+                        $labelUrl = $shipment['ShipmentLabel']['LabelURL'] ?? null;
+
+                        Log::info('Aramex Shipment Created Successfully', [
+                            'tracking_number' => $shipment['ID'],
+                            'label_url' => $labelUrl,
+                            'has_shipment_label' => isset($shipment['ShipmentLabel']),
+                            'shipment_label_structure' => $shipment['ShipmentLabel'] ?? 'NOT_SET',
+                        ]);
+
                         return [
                             'success' => true,
                             'tracking_number' => $shipment['ID'],
-                            'label_url' => $shipment['ShipmentLabel']['LabelURL'] ?? null,
+                            'label_url' => $labelUrl,
                             'aramex_shipment_id' => $shipment['ID'],
                             'message' => 'Shipment created successfully',
                         ];

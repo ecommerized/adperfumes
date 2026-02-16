@@ -108,11 +108,22 @@ class ViewOrder extends ViewRecord
                     $result = $aramexService->createShipment($shipmentData);
 
                     if ($result['success']) {
+                        \Log::info('ViewOrder: Updating order with AWB data', [
+                            'tracking_number' => $result['tracking_number'],
+                            'label_url' => $result['label_url'] ?? null,
+                            'has_label_url' => !empty($result['label_url']),
+                        ]);
+
                         $record->update([
                             'tracking_number' => $result['tracking_number'],
                             'aramex_shipment_id' => $result['aramex_shipment_id'] ?? $result['tracking_number'],
                             'awb_label_url' => $result['label_url'] ?? null,
                             'status' => 'processing',
+                        ]);
+
+                        \Log::info('ViewOrder: Order updated, checking saved values', [
+                            'saved_tracking_number' => $record->tracking_number,
+                            'saved_label_url' => $record->awb_label_url,
                         ]);
 
                         Notification::make()
