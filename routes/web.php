@@ -38,6 +38,17 @@ Route::post('/checkout/process', [CheckoutController::class, 'process'])->name('
 Route::post('/payment/callback/tap', [PaymentController::class, 'tapCallback'])->name('payment.callback.tap');
 Route::get('/payment/return/tap', [PaymentController::class, 'tapReturn'])->name('payment.return.tap');
 
+// Tabby Payment Callbacks
+Route::get('/payment/tabby/success', [PaymentController::class, 'tabbySuccess'])->name('payment.tabby.success');
+Route::get('/payment/tabby/cancel', [PaymentController::class, 'tabbyCancel'])->name('payment.tabby.cancel');
+Route::get('/payment/tabby/failure', [PaymentController::class, 'tabbyFailure'])->name('payment.tabby.failure');
+
+// Tamara Payment Callbacks
+Route::get('/payment/tamara/success', [PaymentController::class, 'tamaraSuccess'])->name('payment.tamara.success');
+Route::get('/payment/tamara/cancel', [PaymentController::class, 'tamaraCancel'])->name('payment.tamara.cancel');
+Route::get('/payment/tamara/failure', [PaymentController::class, 'tamaraFailure'])->name('payment.tamara.failure');
+Route::post('/payment/tamara/webhook', [PaymentController::class, 'tamaraWebhook'])->name('payment.tamara.webhook');
+
 // Order Confirmation & Tracking
 Route::get('/order/{orderNumber}', [PaymentController::class, 'orderConfirmation'])->name('order.confirmation');
 Route::get('/track-order', [PaymentController::class, 'trackOrder'])->name('order.track');

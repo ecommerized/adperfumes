@@ -272,4 +272,256 @@ class PaymentController extends Controller
             ]);
         }
     }
+
+    /**
+     * Handle Tabby payment success callback
+     */
+    public function tabbySuccess(Request $request)
+    {
+        try {
+            $paymentId = $request->input('payment_id');
+            $orderNumber = $request->input('order_number') ?? $request->input('merchant_reference');
+
+            if (!$orderNumber) {
+                return redirect()->route('home')->with('error', 'Invalid payment response');
+            }
+
+            $order = Order::where('order_number', $orderNumber)->first();
+
+            if (!$order) {
+                return redirect()->route('home')->with('error', 'Order not found');
+            }
+
+            // Update order status if payment is confirmed
+            if ($order->payment_status === 'pending') {
+                $order->update([
+                    'payment_status' => 'paid',
+                    'payment_id' => $paymentId,
+                    'status' => 'confirmed',
+                ]);
+
+                Log::info('Tabby Payment Success', [
+                    'order_number' => $orderNumber,
+                    'payment_id' => $paymentId,
+                ]);
+            }
+
+            return redirect()->route('order.confirmation', ['orderNumber' => $order->order_number])
+                ->with('success', 'Payment successful! Your order has been confirmed.');
+
+        } catch (\Exception $e) {
+            Log::error('Tabby Success Callback Error', [
+                'error' => $e->getMessage(),
+                'request' => $request->all(),
+            ]);
+
+            return redirect()->route('home')->with('error', 'An error occurred processing your payment');
+        }
+    }
+
+    /**
+     * Handle Tabby payment cancellation
+     */
+    public function tabbyCancel(Request $request)
+    {
+        try {
+            $orderNumber = $request->input('order_number') ?? $request->input('merchant_reference');
+
+            Log::info('Tabby Payment Cancelled', ['order_number' => $orderNumber]);
+
+            return redirect()->route('checkout.index')
+                ->with('error', 'Payment was cancelled. Please try again.');
+
+        } catch (\Exception $e) {
+            Log::error('Tabby Cancel Callback Error', ['error' => $e->getMessage()]);
+
+            return redirect()->route('home')->with('error', 'An error occurred');
+        }
+    }
+
+    /**
+     * Handle Tabby payment failure
+     */
+    public function tabbyFailure(Request $request)
+    {
+        try {
+            $orderNumber = $request->input('order_number') ?? $request->input('merchant_reference');
+
+            if ($orderNumber) {
+                $order = Order::where('order_number', $orderNumber)->first();
+
+                if ($order && $order->payment_status === 'pending') {
+                    $order->update([
+                        'payment_status' => 'failed',
+                    ]);
+                }
+            }
+
+            Log::warning('Tabby Payment Failed', [
+                'order_number' => $orderNumber,
+                'request' => $request->all(),
+            ]);
+
+            return redirect()->route('checkout.index')
+                ->with('error', 'Payment failed. Please try again or choose a different payment method.');
+
+        } catch (\Exception $e) {
+            Log::error('Tabby Failure Callback Error', ['error' => $e->getMessage()]);
+
+            return redirect()->route('home')->with('error', 'An error occurred');
+        }
+    }
+
+    /**
+     * Handle Tamara payment success callback
+     */
+    public function tamaraSuccess(Request $request)
+    {
+        try {
+            $orderId = $request->input('orderId');
+            $orderNumber = $request->input('order_number');
+
+            if (!$orderNumber && !$orderId) {
+                return redirect()->route('home')->with('error', 'Invalid payment response');
+            }
+
+            // Try to find order by order number or Tamara order ID
+            $order = $orderNumber
+                ? Order::where('order_number', $orderNumber)->first()
+                : Order::where('tamara_order_id', $orderId)->first();
+
+            if (!$order) {
+                return redirect()->route('home')->with('error', 'Order not found');
+            }
+
+            // Update order status if payment is confirmed
+            if ($order->payment_status === 'pending') {
+                $order->update([
+                    'payment_status' => 'paid',
+                    'payment_id' => $orderId,
+                    'status' => 'confirmed',
+                ]);
+
+                Log::info('Tamara Payment Success', [
+                    'order_number' => $order->order_number,
+                    'tamara_order_id' => $orderId,
+                ]);
+            }
+
+            return redirect()->route('order.confirmation', ['orderNumber' => $order->order_number])
+                ->with('success', 'Payment successful! Your order has been confirmed.');
+
+        } catch (\Exception $e) {
+            Log::error('Tamara Success Callback Error', [
+                'error' => $e->getMessage(),
+                'request' => $request->all(),
+            ]);
+
+            return redirect()->route('home')->with('error', 'An error occurred processing your payment');
+        }
+    }
+
+    /**
+     * Handle Tamara payment cancellation
+     */
+    public function tamaraCancel(Request $request)
+    {
+        try {
+            $orderId = $request->input('orderId');
+
+            Log::info('Tamara Payment Cancelled', ['tamara_order_id' => $orderId]);
+
+            return redirect()->route('checkout.index')
+                ->with('error', 'Payment was cancelled. Please try again.');
+
+        } catch (\Exception $e) {
+            Log::error('Tamara Cancel Callback Error', ['error' => $e->getMessage()]);
+
+            return redirect()->route('home')->with('error', 'An error occurred');
+        }
+    }
+
+    /**
+     * Handle Tamara payment failure
+     */
+    public function tamaraFailure(Request $request)
+    {
+        try {
+            $orderId = $request->input('orderId');
+
+            if ($orderId) {
+                $order = Order::where('tamara_order_id', $orderId)->first();
+
+                if ($order && $order->payment_status === 'pending') {
+                    $order->update([
+                        'payment_status' => 'failed',
+                    ]);
+                }
+            }
+
+            Log::warning('Tamara Payment Failed', [
+                'tamara_order_id' => $orderId,
+                'request' => $request->all(),
+            ]);
+
+            return redirect()->route('checkout.index')
+                ->with('error', 'Payment failed. Please try again or choose a different payment method.');
+
+        } catch (\Exception $e) {
+            Log::error('Tamara Failure Callback Error', ['error' => $e->getMessage()]);
+
+            return redirect()->route('home')->with('error', 'An error occurred');
+        }
+    }
+
+    /**
+     * Handle Tamara webhook notifications
+     */
+    public function tamaraWebhook(Request $request)
+    {
+        try {
+            Log::info('Tamara Webhook Received', $request->all());
+
+            $orderId = $request->input('order_id');
+            $orderStatus = $request->input('order_status');
+
+            if (!$orderId) {
+                return response()->json(['error' => 'No order ID provided'], 400);
+            }
+
+            $order = Order::where('tamara_order_id', $orderId)->first();
+
+            if (!$order) {
+                Log::warning('Tamara Webhook: Order not found', ['tamara_order_id' => $orderId]);
+                return response()->json(['error' => 'Order not found'], 404);
+            }
+
+            // Update order based on Tamara webhook status
+            if ($orderStatus === 'approved' || $orderStatus === 'authorised') {
+                $order->update([
+                    'payment_status' => 'paid',
+                    'status' => 'confirmed',
+                ]);
+            } elseif ($orderStatus === 'declined' || $orderStatus === 'expired') {
+                $order->update([
+                    'payment_status' => 'failed',
+                ]);
+            }
+
+            Log::info('Tamara Webhook Processed', [
+                'order_number' => $order->order_number,
+                'order_status' => $orderStatus,
+            ]);
+
+            return response()->json(['success' => true], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Tamara Webhook Error', [
+                'error' => $e->getMessage(),
+                'request' => $request->all(),
+            ]);
+
+            return response()->json(['error' => 'Webhook processing failed'], 500);
+        }
+    }
 }

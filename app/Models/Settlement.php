@@ -17,6 +17,7 @@ class Settlement extends Model
         'total_tax', 'commission_amount', 'commission_tax', 'total_commission',
         'merchant_payout', 'deductions', 'net_payout', 'status',
         'transaction_reference', 'notes', 'paid_at',
+        'total_payment_gateway_fees', 'total_platform_fees',
     ];
 
     protected $casts = [
@@ -31,6 +32,8 @@ class Settlement extends Model
         'merchant_payout' => 'decimal:2',
         'deductions' => 'decimal:2',
         'net_payout' => 'decimal:2',
+        'total_payment_gateway_fees' => 'decimal:2',
+        'total_platform_fees' => 'decimal:2',
     ];
 
     public function merchant(): BelongsTo

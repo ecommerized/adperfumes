@@ -11,6 +11,7 @@ class SettlementItem extends Model
         'settlement_id', 'order_id', 'order_total', 'order_subtotal',
         'commission_rate_applied', 'commission_source', 'commission_amount',
         'commission_tax', 'merchant_payout',
+        'payment_gateway_fee', 'platform_fee',
     ];
 
     protected $casts = [
@@ -20,6 +21,8 @@ class SettlementItem extends Model
         'commission_amount' => 'decimal:2',
         'commission_tax' => 'decimal:2',
         'merchant_payout' => 'decimal:2',
+        'payment_gateway_fee' => 'decimal:2',
+        'platform_fee' => 'decimal:2',
     ];
 
     public function settlement(): BelongsTo

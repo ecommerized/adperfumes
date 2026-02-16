@@ -51,6 +51,16 @@ class Order extends Model
         'return_reason_category',
         'return_notes',
         'is_refund_eligible',
+        // Payment fee tracking fields
+        'payment_card_type',
+        'payment_card_scheme',
+        'payment_card_issuer_country',
+        'payment_gateway_percentage',
+        'payment_gateway_fixed_fee',
+        'payment_gateway_fee_total',
+        'platform_fee_percentage',
+        'platform_fee_amount',
+        'net_amount_after_fees',
     ];
 
     protected $casts = [
@@ -63,6 +73,13 @@ class Order extends Model
         'cancelled_at' => 'datetime',
         'return_requested_at' => 'datetime',
         'is_refund_eligible' => 'boolean',
+        // Payment fee casts
+        'payment_gateway_percentage' => 'decimal:2',
+        'payment_gateway_fixed_fee' => 'decimal:2',
+        'payment_gateway_fee_total' => 'decimal:2',
+        'platform_fee_percentage' => 'decimal:2',
+        'platform_fee_amount' => 'decimal:2',
+        'net_amount_after_fees' => 'decimal:2',
     ];
 
     /**
