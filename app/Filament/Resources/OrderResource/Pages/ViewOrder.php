@@ -32,15 +32,47 @@ class ViewOrder extends ViewRecord
                     $aramexService = app(AramexService::class);
                     $record = $this->record;
 
+                    // Validate required fields before generating AWB
+                    $fullName = trim($record->full_name ?? '');
+                    if (empty($fullName)) {
+                        Notification::make()
+                            ->title('Missing Customer Name')
+                            ->body('Order must have a customer first name and last name.')
+                            ->danger()
+                            ->send();
+                        return;
+                    }
+
+                    if (empty($record->phone)) {
+                        Notification::make()
+                            ->title('Missing Phone Number')
+                            ->body('Order must have a customer phone number.')
+                            ->danger()
+                            ->send();
+                        return;
+                    }
+
+                    if (empty($record->address) || empty($record->city)) {
+                        Notification::make()
+                            ->title('Missing Address')
+                            ->body('Order must have a complete shipping address (address and city required).')
+                            ->danger()
+                            ->send();
+                        return;
+                    }
+
                     $shipmentData = [
                         'order_number' => $record->order_number,
-                        'full_name' => $record->full_name,
-                        'email' => $record->email,
+                        'full_name' => $fullName,
+                        'email' => $record->email ?? '',
                         'phone' => $record->phone,
                         'address' => $record->address,
+                        'address2' => $record->address2 ?? '',
                         'city' => $record->city,
-                        'country' => $record->country,
-                        'postal_code' => $record->postal_code,
+                        'country' => $record->country ?? 'UAE',
+                        'postal_code' => $record->postal_code ?? '',
+                        'weight' => 1.0, // Default 1kg
+                        'pieces' => 1, // Default 1 piece
                     ];
 
                     $result = $aramexService->createShipment($shipmentData);
