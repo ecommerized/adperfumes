@@ -111,6 +111,7 @@ class ViewOrder extends ViewRecord
                         $record->update([
                             'tracking_number' => $result['tracking_number'],
                             'aramex_shipment_id' => $result['aramex_shipment_id'] ?? $result['tracking_number'],
+                            'awb_label_url' => $result['label_url'] ?? null,
                             'status' => 'processing',
                         ]);
 
@@ -127,6 +128,13 @@ class ViewOrder extends ViewRecord
                             ->send();
                     }
                 }),
+            Actions\Action::make('printLabel')
+                ->label('Print AWB Label')
+                ->icon('heroicon-o-printer')
+                ->color('warning')
+                ->visible(fn (): bool => !empty($this->record->awb_label_url))
+                ->url(fn (): string => $this->record->awb_label_url)
+                ->openUrlInNewTab(),
             Actions\Action::make('trackShipment')
                 ->label('Track Shipment')
                 ->icon('heroicon-o-map-pin')

@@ -37,6 +37,7 @@ class Order extends Model
         'shipping_method',
         'tracking_number',
         'aramex_shipment_id',
+        'awb_label_url',
         'status',
         'customer_notes',
         'admin_notes',
