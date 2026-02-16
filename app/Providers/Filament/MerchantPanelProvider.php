@@ -66,7 +66,9 @@ class MerchantPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
                 CheckMerchantApproved::class,
-            ]);
+            ])
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s');
 
         // Set brand logo
         if ($logoPath) {
