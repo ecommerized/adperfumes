@@ -282,7 +282,7 @@ class AccountingService
     }
 
     /**
-     * Get Profit & Loss statement.
+     * Get Profit & Loss statement (UPDATED with payment fees).
      */
     public function getProfitAndLoss(Carbon $from, Carbon $to): array
     {
@@ -301,16 +301,39 @@ class AccountingService
 
         $totalCommissionEarned = round($commissionRevenue + $unsettledCommission, 2);
 
+        // Platform fee revenue (NEW)
+        $platformFeeRevenue = (float) Order::where('payment_status', 'paid')
+            ->whereIn('status', ['confirmed', 'processing', 'shipped', 'delivered'])
+            ->whereBetween('created_at', [$from->startOfDay(), $to->endOfDay()])
+            ->sum('platform_fee_amount');
+
+        // Total Revenue
+        $totalRevenue = round($totalCommissionEarned + $platformFeeRevenue, 2);
+
+        // Expenses: Payment gateway fees (NEW - what we pay to Tap)
+        $paymentGatewayExpenses = (float) Order::where('payment_status', 'paid')
+            ->whereIn('status', ['confirmed', 'processing', 'shipped', 'delivered'])
+            ->whereBetween('created_at', [$from->startOfDay(), $to->endOfDay()])
+            ->sum('payment_gateway_fee_total');
+
         // Expenses: Commission reversals from refunds
         $refundSummary = $this->getRefundSummary($from, $to);
         $commissionReversals = $refundSummary['commission_reversed'];
 
+        // Total Expenses
+        $totalExpenses = round($paymentGatewayExpenses + $commissionReversals, 2);
+
         // Merchant payouts (settlements paid)
         $settlementsPaid = (float) Settlement::where('status', 'paid')
             ->whereBetween('paid_at', [$from->startOfDay(), $to->endOfDay()])
-            ->sum('merchant_payout');
+            ->sum('net_payout'); // Changed from merchant_payout to net_payout
 
-        $grossProfit = round($totalCommissionEarned - $commissionReversals, 2);
+        // Gross Profit (Revenue - Expenses)
+        $grossProfit = round($totalRevenue - $totalExpenses, 2);
+
+        // Net Profit (same as gross for now, corporate tax calculated separately)
+        $netProfit = $grossProfit;
+
         $gmv = $this->getGmv($from, $to);
 
         return [
@@ -321,6 +344,13 @@ class AccountingService
                 'settled_commission' => $commissionRevenue,
                 'unsettled_commission' => $unsettledCommission,
                 'total_commission_earned' => $totalCommissionEarned,
+                'platform_fee_revenue' => $platformFeeRevenue, // NEW
+                'total_revenue' => $totalRevenue, // NEW
+            ],
+            'expenses' => [
+                'payment_gateway_fees' => $paymentGatewayExpenses, // NEW
+                'commission_reversals' => $commissionReversals,
+                'total_expenses' => $totalExpenses, // NEW
             ],
             'deductions' => [
                 'commission_reversals' => $commissionReversals,
@@ -328,8 +358,9 @@ class AccountingService
             ],
             'gross_profit' => $grossProfit,
             'settlements_paid' => $settlementsPaid,
-            'net_profit' => $grossProfit,
-            'margin_percentage' => $gmv > 0 ? round(($grossProfit / $gmv) * 100, 2) : 0,
+            'net_profit' => $netProfit,
+            'margin_percentage' => $gmv > 0 ? round(($netProfit / $gmv) * 100, 2) : 0,
+            'profit_margin_on_revenue' => $totalRevenue > 0 ? round(($netProfit / $totalRevenue) * 100, 2) : 0, // NEW
         ];
     }
 

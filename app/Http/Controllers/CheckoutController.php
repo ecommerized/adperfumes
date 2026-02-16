@@ -12,6 +12,7 @@ use App\Payments\TamaraPayment;
 use App\Services\CheckoutCalculator;
 use App\Services\CommissionService;
 use App\Services\DiscountService;
+use App\Services\PaymentFeeService;
 use App\Services\SettingsService;
 use App\Services\Shipping\AramexService;
 use Illuminate\Http\Request;
@@ -28,6 +29,7 @@ class CheckoutController extends Controller
     protected $discountService;
     protected $settingsService;
     protected $commissionService;
+    protected $paymentFeeService;
 
     public function __construct(
         CheckoutCalculator $calculator,
@@ -37,7 +39,8 @@ class CheckoutController extends Controller
         TamaraPayment $tamaraPayment,
         DiscountService $discountService,
         SettingsService $settingsService,
-        CommissionService $commissionService
+        CommissionService $commissionService,
+        PaymentFeeService $paymentFeeService
     ) {
         $this->calculator = $calculator;
         $this->aramexService = $aramexService;
@@ -47,6 +50,7 @@ class CheckoutController extends Controller
         $this->discountService = $discountService;
         $this->settingsService = $settingsService;
         $this->commissionService = $commissionService;
+        $this->paymentFeeService = $paymentFeeService;
     }
 
     /**
@@ -166,6 +170,36 @@ class CheckoutController extends Controller
                     'subtotal' => $subtotal,
                     'commission_rate' => $commissionRate,
                     'commission_amount' => $commissionAmount,
+                ]);
+            }
+
+            // Calculate and store estimated payment fees (will be updated with actual card details from webhook)
+            try {
+                $paymentMethod = $validated['payment_method'] ?? 'tap';
+                $fees = $this->paymentFeeService->calculateAllFees(
+                    $order->grand_total,
+                    $paymentMethod,
+                    'local_visa' // default assumption, will be updated from webhook
+                );
+
+                $order->update([
+                    'payment_gateway_percentage' => $fees['gateway_fee_percentage'],
+                    'payment_gateway_fixed_fee' => $fees['gateway_fee_fixed'],
+                    'payment_gateway_fee_total' => $fees['gateway_fee_total'],
+                    'platform_fee_percentage' => $fees['platform_fee_percentage'],
+                    'platform_fee_amount' => $fees['platform_fee_amount'],
+                    'net_amount_after_fees' => $fees['net_amount_after_fees'],
+                ]);
+
+                Log::info('Estimated payment fees calculated', [
+                    'order' => $order->order_number,
+                    'payment_method' => $paymentMethod,
+                    'fees' => $fees,
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Failed to calculate estimated payment fees', [
+                    'order' => $order->order_number,
+                    'error' => $e->getMessage(),
                 ]);
             }
 

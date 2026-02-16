@@ -39,13 +39,14 @@ class SettlementService
     /**
      * Generate settlements for a specific payout date.
      * Groups eligible order items by merchant.
+     * NOW INCLUDES: Payment gateway fees + Platform fees deductions
      */
     public function generateSettlements(?Carbon $payoutDate = null): array
     {
         $payoutDate = $payoutDate ?? Carbon::today();
         $settlements = [];
 
-        // Find all eligible order items not yet settled
+        // Find all eligible order items not yet settled (MERCHANT ORDERS ONLY)
         $eligibleItems = DB::table('order_items')
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->leftJoin('settlement_items', 'settlement_items.order_id', '=', 'orders.id')
@@ -54,7 +55,7 @@ class SettlementService
             ->where('orders.payment_status', 'paid')
             ->whereNotNull('orders.settlement_eligible_at')
             ->where('orders.settlement_eligible_at', '<=', $payoutDate)
-            ->whereNotNull('order_items.merchant_id')
+            ->whereNotNull('order_items.merchant_id') // ONLY merchant orders (own store excluded)
             ->select(
                 'order_items.merchant_id',
                 'order_items.order_id',
@@ -63,6 +64,9 @@ class SettlementService
                 'order_items.quantity',
                 'order_items.commission_rate',
                 'order_items.commission_amount',
+                'orders.payment_gateway_fee_total',
+                'orders.platform_fee_amount',
+                'orders.grand_total',
             )
             ->get();
 
@@ -81,10 +85,30 @@ class SettlementService
                 $taxRate = 5.00; // UAE VAT
                 $totalSubtotal = round($totalOrderAmount / (1 + ($taxRate / 100)), 2);
                 $totalTax = round($totalOrderAmount - $totalSubtotal, 2);
+
+                // Commission calculations
                 $commissionAmount = $items->sum('commission_amount');
                 $commissionTax = round($commissionAmount * $taxRate / 100, 2);
                 $totalCommission = round($commissionAmount + $commissionTax, 2);
-                $merchantPayout = round($totalOrderAmount - $totalCommission, 2);
+
+                // Payment fee calculations (NEW)
+                $totalPaymentGatewayFees = 0;
+                $totalPlatformFees = 0;
+
+                // Get unique order IDs for this merchant's items
+                $orderIds = $items->pluck('order_id')->unique();
+
+                foreach ($orderIds as $orderId) {
+                    $order = Order::find($orderId);
+                    if ($order) {
+                        $totalPaymentGatewayFees += $order->payment_gateway_fee_total ?? 0;
+                        $totalPlatformFees += $order->platform_fee_amount ?? 0;
+                    }
+                }
+
+                // Calculate merchant payout (UPDATED to include fees)
+                $merchantPayoutBeforeFees = round($totalOrderAmount - $totalCommission, 2);
+                $netPayout = round($merchantPayoutBeforeFees - $totalPaymentGatewayFees - $totalPlatformFees, 2);
 
                 $settlement = Settlement::create([
                     'merchant_id' => $merchantId,
@@ -95,7 +119,11 @@ class SettlementService
                     'commission_amount' => $commissionAmount,
                     'commission_tax' => $commissionTax,
                     'total_commission' => $totalCommission,
-                    'merchant_payout' => $merchantPayout,
+                    'merchant_payout' => $merchantPayoutBeforeFees, // before fees
+                    'total_payment_gateway_fees' => $totalPaymentGatewayFees, // NEW
+                    'total_platform_fees' => $totalPlatformFees, // NEW
+                    'deductions' => 0, // refund recoveries will be added separately
+                    'net_payout' => $netPayout, // FINAL amount after all deductions
                     'status' => 'pending',
                 ]);
 
@@ -107,6 +135,15 @@ class SettlementService
                     $orderCommissionTax = round($orderCommission * $taxRate / 100, 2);
                     $orderSubtotal = round($orderTotal / (1 + ($taxRate / 100)), 2);
 
+                    // Get order fees (NEW)
+                    $order = Order::find($orderId);
+                    $orderPaymentFee = $order->payment_gateway_fee_total ?? 0;
+                    $orderPlatformFee = $order->platform_fee_amount ?? 0;
+
+                    // Calculate merchant payout for this order item
+                    $orderPayoutBeforeFees = round($orderTotal - $orderCommission - $orderCommissionTax, 2);
+                    $orderNetPayout = round($orderPayoutBeforeFees - $orderPaymentFee - $orderPlatformFee, 2);
+
                     SettlementItem::create([
                         'settlement_id' => $settlement->id,
                         'order_id' => $orderId,
@@ -116,14 +153,19 @@ class SettlementService
                         'commission_source' => 'order_item',
                         'commission_amount' => $orderCommission,
                         'commission_tax' => $orderCommissionTax,
-                        'merchant_payout' => round($orderTotal - $orderCommission - $orderCommissionTax, 2),
+                        'payment_gateway_fee' => $orderPaymentFee, // NEW
+                        'platform_fee' => $orderPlatformFee, // NEW
+                        'merchant_payout' => $orderNetPayout, // UPDATED: now includes fee deductions
                     ]);
                 }
 
                 $settlement->logTransaction('settlement_created', [], [
                     'merchant_id' => $merchantId,
                     'payout_date' => $payoutDate->toDateString(),
-                    'merchant_payout' => $merchantPayout,
+                    'gross_payout' => $merchantPayoutBeforeFees,
+                    'payment_fees' => $totalPaymentGatewayFees,
+                    'platform_fees' => $totalPlatformFees,
+                    'net_payout' => $netPayout,
                     'orders_count' => $orderGroups->count(),
                 ]);
 

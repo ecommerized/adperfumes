@@ -121,21 +121,140 @@ class InvoiceService
      */
     public function generateInvoicePdf(Invoice $invoice): string
     {
-        $invoice->load(['items', 'order', 'merchant']);
+        try {
+            $invoice->load(['items', 'order', 'merchant']);
 
-        $settings = app(\App\Services\SettingsService::class);
-        $pdf = Pdf::loadView('pdf.invoice', [
-            'invoice' => $invoice,
-            'storeName' => $settings->get('store_name', 'AD Perfumes'),
-            'storeUrl' => config('app.url'),
-        ]);
+            $settings = app(\App\Services\SettingsService::class);
+            $pdf = Pdf::loadView('pdf.invoice', [
+                'invoice' => $invoice,
+                'storeName' => $settings->get('store_name', 'AD Perfumes'),
+                'storeUrl' => config('app.url'),
+            ]);
 
-        $path = 'invoices/' . $invoice->invoice_number . '.pdf';
-        Storage::put($path, $pdf->output());
+            $path = 'invoices/' . $invoice->invoice_number . '.pdf';
+            Storage::put($path, $pdf->output());
 
-        $invoice->update(['pdf_path' => $path]);
+            $invoice->update(['pdf_path' => $path]);
 
-        return $path;
+            Log::info('Invoice PDF generated successfully', [
+                'invoice_number' => $invoice->invoice_number,
+                'path' => $path,
+            ]);
+
+            return $path;
+        } catch (\Exception $e) {
+            Log::error('Failed to generate invoice PDF', [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            throw new \RuntimeException(
+                "Failed to generate PDF for invoice {$invoice->invoice_number}: {$e->getMessage()}",
+                0,
+                $e
+            );
+        }
+    }
+
+    /**
+     * Generate FTA-compliant PDF invoice with QR code.
+     *
+     * @param Invoice $invoice
+     * @param bool $useFtaView Use FTA-compliant bilingual view (default: true)
+     * @return string PDF file path
+     */
+    public function generateFtaInvoicePdf(Invoice $invoice, bool $useFtaView = true): string
+    {
+        try {
+            $invoice->load(['items', 'order', 'merchant']);
+
+            // Generate QR code
+            $qrCode = $invoice->generateFtaQrCode();
+
+            // Get settings
+            $settings = app(\App\Services\SettingsService::class);
+            $storeName = $settings->get('store_name', 'AD Perfumes');
+
+            // Choose view based on preference
+            $view = $useFtaView ? 'pdf.invoice-fta' : 'pdf.invoice';
+
+            // Generate PDF with QR code
+            $pdf = Pdf::loadView($view, [
+                'invoice' => $invoice,
+                'storeName' => $storeName,
+                'storeUrl' => config('app.url'),
+                'qrCode' => $qrCode, // Include QR code data
+            ])
+            ->setPaper('a4')
+            ->setOption('enable_html5_parser', true)
+            ->setOption('enable_php', true);
+
+            // Save PDF
+            $path = 'invoices/' . $invoice->invoice_number . '.pdf';
+            Storage::put($path, $pdf->output());
+
+            // Update invoice with PDF path
+            $invoice->update(['pdf_path' => $path]);
+
+            Log::info('FTA invoice PDF generated successfully', [
+                'invoice_number' => $invoice->invoice_number,
+                'path' => $path,
+                'qr_code_included' => isset($qrCode['base64']),
+                'fta_compliant' => $useFtaView,
+            ]);
+
+            return $path;
+        } catch (\Exception $e) {
+            Log::error('Failed to generate FTA invoice PDF', [
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'fta_view' => $useFtaView,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            throw new \RuntimeException(
+                "Failed to generate FTA-compliant PDF for invoice {$invoice->invoice_number}: {$e->getMessage()}",
+                0,
+                $e
+            );
+        }
+    }
+
+    /**
+     * Regenerate all invoices with FTA-compliant QR codes.
+     *
+     * @param bool $onlyMissing Only regenerate invoices without QR codes
+     * @return int Number of invoices regenerated
+     */
+    public function regenerateInvoicesWithQrCodes(bool $onlyMissing = true): int
+    {
+        $query = Invoice::query();
+
+        if ($onlyMissing) {
+            $query->whereNull('qr_code_data');
+        }
+
+        $invoices = $query->get();
+        $count = 0;
+
+        foreach ($invoices as $invoice) {
+            try {
+                $this->generateFtaInvoicePdf($invoice);
+                $count++;
+            } catch (\Exception $e) {
+                Log::error('Failed to regenerate invoice with QR code', [
+                    'invoice_number' => $invoice->invoice_number,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        Log::info('Regenerated invoices with QR codes', ['count' => $count]);
+
+        return $count;
     }
 
     /**
@@ -143,19 +262,39 @@ class InvoiceService
      */
     public function generateCreditNotePdf(CreditNote $creditNote): string
     {
-        $creditNote->load(['order', 'refund', 'invoice', 'merchant']);
+        try {
+            $creditNote->load(['order', 'refund', 'invoice', 'merchant']);
 
-        $settings = app(\App\Services\SettingsService::class);
-        $pdf = Pdf::loadView('pdf.credit-note', [
-            'creditNote' => $creditNote,
-            'storeName' => $settings->get('store_name', 'AD Perfumes'),
-        ]);
+            $settings = app(\App\Services\SettingsService::class);
+            $pdf = Pdf::loadView('pdf.credit-note', [
+                'creditNote' => $creditNote,
+                'storeName' => $settings->get('store_name', 'AD Perfumes'),
+            ]);
 
-        $path = 'credit-notes/' . $creditNote->credit_note_number . '.pdf';
-        Storage::put($path, $pdf->output());
+            $path = 'credit-notes/' . $creditNote->credit_note_number . '.pdf';
+            Storage::put($path, $pdf->output());
 
-        $creditNote->update(['pdf_path' => $path]);
+            $creditNote->update(['pdf_path' => $path]);
 
-        return $path;
+            Log::info('Credit note PDF generated successfully', [
+                'credit_note_number' => $creditNote->credit_note_number,
+                'path' => $path,
+            ]);
+
+            return $path;
+        } catch (\Exception $e) {
+            Log::error('Failed to generate credit note PDF', [
+                'credit_note_id' => $creditNote->id,
+                'credit_note_number' => $creditNote->credit_note_number,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            throw new \RuntimeException(
+                "Failed to generate PDF for credit note {$creditNote->credit_note_number}: {$e->getMessage()}",
+                0,
+                $e
+            );
+        }
     }
 }

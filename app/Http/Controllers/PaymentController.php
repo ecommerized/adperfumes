@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Mail\OrderConfirmationMail;
 use App\Models\Order;
 use App\Payments\TapPayment;
+use App\Services\PaymentFeeService;
 use App\Services\Shipping\AramexService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -14,11 +15,16 @@ class PaymentController extends Controller
 {
     protected $tapPayment;
     protected $aramexService;
+    protected $paymentFeeService;
 
-    public function __construct(TapPayment $tapPayment, AramexService $aramexService)
-    {
+    public function __construct(
+        TapPayment $tapPayment,
+        AramexService $aramexService,
+        PaymentFeeService $paymentFeeService
+    ) {
         $this->tapPayment = $tapPayment;
         $this->aramexService = $aramexService;
+        $this->paymentFeeService = $paymentFeeService;
     }
 
     /**
@@ -60,6 +66,23 @@ class PaymentController extends Controller
                 'payment_response' => json_encode($paymentData['data']),
                 'status' => $paymentData['is_paid'] ? 'confirmed' : 'pending',
             ]);
+
+            // Calculate and store payment fees if payment successful
+            if ($paymentData['is_paid']) {
+                try {
+                    $this->paymentFeeService->updateOrderPaymentFees($order, $paymentData['data'] ?? []);
+                    Log::info('Payment fees calculated and stored', [
+                        'order' => $order->order_number,
+                        'gateway_fee' => $order->fresh()->payment_gateway_fee_total,
+                        'platform_fee' => $order->fresh()->platform_fee_amount,
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('Failed to calculate payment fees', [
+                        'order' => $order->order_number,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
 
             Log::info('Order Payment Updated', [
                 'order' => $order->order_number,
@@ -124,6 +147,18 @@ class PaymentController extends Controller
                     'status' => $paymentData['is_paid'] ? 'confirmed' : 'pending',
                 ]);
                 $wasUpdated = true;
+
+                // Calculate and store payment fees if payment successful
+                if ($paymentData['is_paid']) {
+                    try {
+                        $this->paymentFeeService->updateOrderPaymentFees($order, $paymentData['data'] ?? []);
+                    } catch (\Exception $e) {
+                        Log::error('Failed to calculate payment fees in return', [
+                            'order' => $order->order_number,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
             }
 
             // Send email if payment successful and order was just updated (callback might not have fired yet)
