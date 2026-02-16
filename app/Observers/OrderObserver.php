@@ -3,8 +3,13 @@
 namespace App\Observers;
 
 use App\Models\Customer;
+use App\Models\Merchant;
 use App\Models\Order;
+use App\Models\User;
+use App\Notifications\NewOrderNotification;
+use App\Notifications\OrderStatusChanged;
 use App\Services\InvoiceService;
+use Illuminate\Support\Facades\Notification;
 
 class OrderObserver
 {
@@ -32,6 +37,47 @@ class OrderObserver
 
         // Update customer stats
         $customer->updateStats();
+
+        // Send notifications after order is fully created with items
+        $this->sendNewOrderNotifications($order);
+    }
+
+    /**
+     * Send notifications for new order to admin and merchants
+     */
+    protected function sendNewOrderNotifications(Order $order): void
+    {
+        try {
+            // Get all admin users
+            $admins = User::all();
+
+            // Send notification to all admins
+            foreach ($admins as $admin) {
+                $admin->notify(new NewOrderNotification($order));
+            }
+
+            // Group order items by merchant and notify each merchant
+            $merchantTotals = [];
+            foreach ($order->items as $item) {
+                if ($item->merchant_id) {
+                    if (!isset($merchantTotals[$item->merchant_id])) {
+                        $merchantTotals[$item->merchant_id] = 0;
+                    }
+                    $merchantTotals[$item->merchant_id] += $item->total;
+                }
+            }
+
+            // Notify each merchant
+            foreach ($merchantTotals as $merchantId => $total) {
+                $merchant = Merchant::find($merchantId);
+                if ($merchant) {
+                    $merchant->notify(new NewOrderNotification($order, $total));
+                }
+            }
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to send new order notifications for order #' . $order->order_number . ': ' . $e->getMessage());
+        }
     }
 
     /**
@@ -45,6 +91,7 @@ class OrderObserver
 
         // Auto-handle status changes
         if ($order->wasChanged('status')) {
+            $oldStatus = $order->getOriginal('status');
             $newStatus = $order->status;
 
             // On delivery: set delivered_at, settlement eligibility, generate invoices
@@ -68,6 +115,15 @@ class OrderObserver
                 $order->updateQuietly([
                     'cancelled_at' => now(),
                 ]);
+            }
+
+            // Send status change notification to customer
+            if ($order->customer) {
+                try {
+                    $order->customer->notify(new OrderStatusChanged($order, $oldStatus, $newStatus));
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('Failed to send status change notification for order #' . $order->order_number . ': ' . $e->getMessage());
+                }
             }
         }
     }
