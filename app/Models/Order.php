@@ -109,7 +109,10 @@ class Order extends Model
      */
     public function getFullNameAttribute(): string
     {
-        return $this->first_name . ' ' . $this->last_name;
+        $firstName = trim($this->first_name ?? '');
+        $lastName = trim($this->last_name ?? '');
+
+        return trim($firstName . ' ' . $lastName);
     }
 
     /**

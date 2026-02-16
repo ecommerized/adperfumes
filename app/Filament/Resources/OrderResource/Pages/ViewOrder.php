@@ -32,16 +32,41 @@ class ViewOrder extends ViewRecord
                     $aramexService = app(AramexService::class);
                     $record = $this->record;
 
+                    // Log order data for debugging
+                    \Log::info('ViewOrder: AWB Generation Started', [
+                        'order_id' => $record->id,
+                        'order_number' => $record->order_number,
+                        'first_name' => $record->first_name,
+                        'last_name' => $record->last_name,
+                        'full_name_accessor' => $record->full_name,
+                        'phone' => $record->phone,
+                        'address' => $record->address,
+                        'city' => $record->city,
+                        'country' => $record->country,
+                    ]);
+
                     // Validate required fields before generating AWB
-                    $fullName = trim($record->full_name ?? '');
-                    if (empty($fullName)) {
+                    // Check first_name and last_name directly
+                    $firstName = trim($record->first_name ?? '');
+                    $lastName = trim($record->last_name ?? '');
+
+                    if (empty($firstName) || empty($lastName)) {
+                        \Log::error('ViewOrder: Name validation failed', [
+                            'first_name' => $record->first_name,
+                            'last_name' => $record->last_name,
+                            'first_name_trimmed' => $firstName,
+                            'last_name_trimmed' => $lastName,
+                        ]);
                         Notification::make()
                             ->title('Missing Customer Name')
-                            ->body('Order must have a customer first name and last name.')
+                            ->body('Order must have both first name and last name. Please update the order first.')
                             ->danger()
                             ->send();
                         return;
                     }
+
+                    // Construct full name from validated first and last names
+                    $fullName = trim($firstName . ' ' . $lastName);
 
                     if (empty($record->phone)) {
                         Notification::make()
@@ -60,6 +85,11 @@ class ViewOrder extends ViewRecord
                             ->send();
                         return;
                     }
+
+                    \Log::info('ViewOrder: Validation passed, preparing shipment data', [
+                        'full_name_constructed' => $fullName,
+                        'phone' => $record->phone,
+                    ]);
 
                     $shipmentData = [
                         'order_number' => $record->order_number,

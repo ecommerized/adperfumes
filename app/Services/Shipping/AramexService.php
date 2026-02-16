@@ -162,9 +162,23 @@ class AramexService
                 ];
             }
 
+            // Log incoming order data for debugging
+            Log::info('AramexService: createShipment called', [
+                'order_number' => $orderData['order_number'] ?? 'N/A',
+                'full_name_raw' => $orderData['full_name'] ?? null,
+                'phone_raw' => $orderData['phone'] ?? null,
+                'address' => $orderData['address'] ?? null,
+                'city' => $orderData['city'] ?? null,
+            ]);
+
             // Validate required fields
             $fullName = trim($orderData['full_name'] ?? '');
             if (empty($fullName)) {
+                Log::error('AramexService: Full name validation failed', [
+                    'full_name_raw' => $orderData['full_name'] ?? null,
+                    'full_name_trimmed' => $fullName,
+                    'is_empty' => empty($fullName),
+                ]);
                 return [
                     'success' => false,
                     'message' => 'Customer name is required for shipment creation. Please ensure the order has a first name and last name.',
@@ -173,11 +187,20 @@ class AramexService
 
             $phone = trim($orderData['phone'] ?? '');
             if (empty($phone)) {
+                Log::error('AramexService: Phone validation failed', [
+                    'phone_raw' => $orderData['phone'] ?? null,
+                    'phone_trimmed' => $phone,
+                ]);
                 return [
                     'success' => false,
                     'message' => 'Customer phone number is required for shipment creation.',
                 ];
             }
+
+            Log::info('AramexService: Validation passed', [
+                'full_name' => $fullName,
+                'phone' => $phone,
+            ]);
 
             // Normalize country code to ISO 3166-1 alpha-2 format
             $destCountry = $this->normalizeCountryCode($orderData['country'] ?? 'AE');
@@ -320,6 +343,15 @@ class AramexService
                     'ReportType' => 'URL',
                 ],
             ];
+
+            // Log the exact payload being sent to Aramex (for debugging)
+            Log::info('AramexService: Sending payload to Aramex API', [
+                'consignee_name' => $payload['Shipments'][0]['Consignee']['Contact']['PersonName'] ?? 'NOT_SET',
+                'consignee_phone' => $payload['Shipments'][0]['Consignee']['Contact']['PhoneNumber1'] ?? 'NOT_SET',
+                'consignee_cell' => $payload['Shipments'][0]['Consignee']['Contact']['CellPhone'] ?? 'NOT_SET',
+                'order_number' => $payload['Shipments'][0]['Reference1'] ?? 'NOT_SET',
+                'full_payload' => $payload,
+            ]);
 
             $response = Http::timeout(30)
                 ->withHeaders([
