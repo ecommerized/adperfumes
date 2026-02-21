@@ -46,7 +46,7 @@
 <meta property="og:title" content="{{ Str::limit($ogTitle, 95, '') }}">
 <meta property="og:description" content="{{ Str::limit($ogDescription, 200, '') }}">
 @if($ogImage)
-    <meta property="og:image" content="{{ Str::startsWith($ogImage, 'http') ? $ogImage : asset('storage/' . $ogImage) }}">
+    <meta property="og:image" content="{{ Str::startsWith($ogImage, 'http') ? $ogImage : Storage::disk('public')->url($ogImage) }}">
 @endif
 <meta property="og:locale" content="en_AE">
 <meta property="og:site_name" content="{{ $storeName }}">
@@ -56,7 +56,7 @@
 <meta name="twitter:title" content="{{ Str::limit($twitterTitle, 70, '') }}">
 <meta name="twitter:description" content="{{ Str::limit($twitterDescription, 200, '') }}">
 @if($ogImage)
-    <meta name="twitter:image" content="{{ Str::startsWith($ogImage, 'http') ? $ogImage : asset('storage/' . $ogImage) }}">
+    <meta name="twitter:image" content="{{ Str::startsWith($ogImage, 'http') ? $ogImage : Storage::disk('public')->url($ogImage) }}">
 @endif
 
 {{-- JSON-LD Structured Data --}}
