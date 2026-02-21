@@ -84,6 +84,9 @@
                     @endif
                 </div>
 
+                <!-- BNPL Installment Widgets -->
+                @include('partials.bnpl-widgets')
+
                 <!-- Description -->
                 @if($product->description)
                     <div>
