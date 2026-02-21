@@ -11,6 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('order_items', 'commission_rate')) { return; }
+
         Schema::table('order_items', function (Blueprint $table) {
             $table->foreignId('merchant_id')->nullable()->after('product_id')->constrained()->nullOnDelete();
             $table->decimal('commission_rate', 5, 2)->nullable()->after('subtotal');

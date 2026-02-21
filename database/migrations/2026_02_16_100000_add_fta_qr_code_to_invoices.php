@@ -16,6 +16,8 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('invoices', 'qr_code_data')) { return; }
+
         Schema::table('invoices', function (Blueprint $table) {
             $table->text('qr_code_data')->nullable()->after('pdf_path');
         });

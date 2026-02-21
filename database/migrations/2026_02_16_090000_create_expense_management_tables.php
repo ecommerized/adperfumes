@@ -19,6 +19,8 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('vat_returns')) { return; }
+
         // 1. VAT Returns Table (created first - referenced by expenses)
         Schema::create('vat_returns', function (Blueprint $table) {
             $table->id();

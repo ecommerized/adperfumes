@@ -9,6 +9,8 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('orders', 'delivered_at')) { return; }
+
         // Expand the status enum to include return/refund statuses
         DB::statement("ALTER TABLE orders MODIFY COLUMN status ENUM('pending','confirmed','processing','shipped','delivered','cancelled','return_requested','return_approved','return_rejected','returned','refunded') DEFAULT 'pending'");
 

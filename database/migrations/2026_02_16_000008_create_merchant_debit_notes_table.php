@@ -8,6 +8,8 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('merchant_debit_notes')) { return; }
+
         Schema::create('merchant_debit_notes', function (Blueprint $table) {
             $table->id();
             $table->string('debit_note_number')->unique();

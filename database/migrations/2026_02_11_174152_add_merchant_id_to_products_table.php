@@ -11,6 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('products', 'merchant_id')) { return; }
+
         Schema::table('products', function (Blueprint $table) {
             $table->foreignId('merchant_id')->nullable()->after('brand_id')->constrained()->onDelete('cascade');
             $table->index('merchant_id');

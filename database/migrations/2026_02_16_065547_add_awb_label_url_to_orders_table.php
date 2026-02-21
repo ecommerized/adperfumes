@@ -11,6 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('orders', 'awb_label_url')) { return; }
+
         Schema::table('orders', function (Blueprint $table) {
             $table->string('awb_label_url')->nullable()->after('aramex_shipment_id');
         });

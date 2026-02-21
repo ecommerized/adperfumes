@@ -8,6 +8,8 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('transaction_logs')) { return; }
+
         Schema::create('transaction_logs', function (Blueprint $table) {
             $table->id();
             $table->morphs('loggable');

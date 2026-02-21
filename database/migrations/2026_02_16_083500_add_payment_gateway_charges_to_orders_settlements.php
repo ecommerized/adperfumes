@@ -11,6 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('orders', 'payment_card_type')) { return; }
+
         // Add payment gateway fee tracking to orders table
         Schema::table('orders', function (Blueprint $table) {
             // Payment method details (captured from payment gateway webhook)

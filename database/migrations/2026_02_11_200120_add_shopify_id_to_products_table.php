@@ -11,6 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('products', 'shopify_id')) { return; }
+
         Schema::table('products', function (Blueprint $table) {
             $table->string('shopify_id')->nullable()->unique()->after('id');
         });

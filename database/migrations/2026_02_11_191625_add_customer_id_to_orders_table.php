@@ -11,6 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('orders', 'customer_id')) { return; }
+
         Schema::table('orders', function (Blueprint $table) {
             $table->foreignId('customer_id')->nullable()->after('id')->constrained()->nullOnDelete();
             $table->index('customer_id');

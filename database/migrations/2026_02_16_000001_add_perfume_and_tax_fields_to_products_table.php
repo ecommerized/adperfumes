@@ -9,6 +9,8 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('products', 'price_excluding_tax')) { return; }
+
         Schema::table('products', function (Blueprint $table) {
             // Tax-inclusive pricing (UAE VAT = 5%)
             $table->decimal('price_excluding_tax', 10, 2)->nullable()->after('price');

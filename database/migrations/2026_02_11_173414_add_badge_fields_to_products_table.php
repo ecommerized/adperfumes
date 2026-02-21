@@ -11,6 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('products', 'is_new')) { return; }
+
         Schema::table('products', function (Blueprint $table) {
             $table->boolean('is_new')->default(false)->after('stock');
             $table->boolean('on_sale')->default(false)->after('is_new');

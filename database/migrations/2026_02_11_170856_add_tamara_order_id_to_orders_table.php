@@ -11,6 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('orders', 'tamara_order_id')) { return; }
+
         Schema::table('orders', function (Blueprint $table) {
             $table->string('tamara_order_id')->nullable()->after('payment_id');
         });

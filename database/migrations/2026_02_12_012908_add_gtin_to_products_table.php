@@ -11,6 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('products', 'gtin')) { return; }
+
         Schema::table('products', function (Blueprint $table) {
             $table->string('gtin', 14)->nullable()->after('slug')->index();
         });

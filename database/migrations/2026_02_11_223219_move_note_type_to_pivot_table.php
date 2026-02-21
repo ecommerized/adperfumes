@@ -9,6 +9,8 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('product_notes', 'type')) { return; }
+
         // 1. Add type column to product_notes pivot
         Schema::table('product_notes', function (Blueprint $table) {
             $table->enum('type', ['top', 'middle', 'base'])->default('top')->after('note_id');

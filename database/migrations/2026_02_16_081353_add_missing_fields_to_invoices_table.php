@@ -8,6 +8,8 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('invoices', 'shipping_amount')) { return; }
+
         Schema::table('invoices', function (Blueprint $table) {
             // Add missing fields used by InvoiceService
             $table->decimal('shipping_amount', 12, 2)->default(0)->after('tax_amount');
