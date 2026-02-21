@@ -26,10 +26,19 @@ class AdminPanelProvider extends PanelProvider
     public function panel(Panel $panel): Panel
     {
         // Get logo, favicon and store name from settings
-        $settings = app(SettingsService::class);
-        $logoPath = $settings->get('store_logo');
-        $faviconPath = $settings->get('store_favicon');
-        $storeName = $settings->get('store_name', 'AD Perfumes');
+        // Wrapped in try-catch to handle cases where the database isn't ready
+        // (e.g., during package:discover on Laravel Cloud builds)
+        $logoPath = null;
+        $faviconPath = null;
+        $storeName = 'AD Perfumes';
+        try {
+            $settings = app(SettingsService::class);
+            $logoPath = $settings->get('store_logo');
+            $faviconPath = $settings->get('store_favicon');
+            $storeName = $settings->get('store_name', 'AD Perfumes');
+        } catch (\Throwable $e) {
+            // Database not ready, use defaults
+        }
 
         $panel = $panel
             ->default()
