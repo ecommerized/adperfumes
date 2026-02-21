@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\Brand;
 use App\Models\Accord;
-use App\Services\BnplWidgetService;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
@@ -79,13 +78,10 @@ class ProductController extends Controller
             ->take(4)
             ->get();
 
-        $bnplWidgets = app(BnplWidgetService::class)->getWidgetsForPrice((float) $product->price);
-
         return view('products.show', [
             'product' => $product,
             'relatedProducts' => $relatedProducts,
             'seoModel' => $product,
-            'bnplWidgets' => $bnplWidgets,
         ]);
     }
 

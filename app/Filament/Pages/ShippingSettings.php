@@ -35,6 +35,23 @@ class ShippingSettings extends Page
             'payment_tamara_enabled' => (bool) $settings->get('payment_tamara_enabled', true),
             'payment_cod_enabled' => (bool) $settings->get('payment_cod_enabled', false),
 
+            // Tap Payments credentials
+            'payment_tap_secret_key' => $settings->get('payment_tap_secret_key', ''),
+            'payment_tap_publishable_key' => $settings->get('payment_tap_publishable_key', ''),
+            'payment_tap_is_live' => (bool) $settings->get('payment_tap_is_live', false),
+
+            // Tabby credentials
+            'payment_tabby_secret_key' => $settings->get('payment_tabby_secret_key', ''),
+            'payment_tabby_public_key' => $settings->get('payment_tabby_public_key', ''),
+            'payment_tabby_merchant_code' => $settings->get('payment_tabby_merchant_code', ''),
+            'payment_tabby_is_live' => (bool) $settings->get('payment_tabby_is_live', false),
+
+            // Tamara credentials
+            'payment_tamara_api_token' => $settings->get('payment_tamara_api_token', ''),
+            'payment_tamara_notification_key' => $settings->get('payment_tamara_notification_key', ''),
+            'payment_tamara_merchant_url' => $settings->get('payment_tamara_merchant_url', ''),
+            'payment_tamara_is_live' => (bool) $settings->get('payment_tamara_is_live', false),
+
             // Shipping settings
             'shipping_enabled' => $settings->get('shipping.enabled', true),
             'shipping_provider' => $settings->get('shipping.provider', 'flat_rate'),
@@ -82,6 +99,74 @@ class ShippingSettings extends Page
                             ->label('Cash on Delivery (COD)')
                             ->default(false)
                             ->helperText('Customer pays when receiving the order'),
+                    ])->columns(2),
+
+                Forms\Components\Section::make('Tap Payments Configuration')
+                    ->description('API credentials for Tap Payments gateway (credit/debit cards).')
+                    ->schema([
+                        Forms\Components\Toggle::make('payment_tap_is_live')
+                            ->label('Live Mode')
+                            ->helperText('Enable to process real payments. Disable for sandbox/testing.')
+                            ->columnSpanFull(),
+
+                        Forms\Components\TextInput::make('payment_tap_secret_key')
+                            ->label('Secret Key')
+                            ->password()
+                            ->revealable()
+                            ->helperText('Your Tap secret API key (sk_live_... or sk_test_...)'),
+
+                        Forms\Components\TextInput::make('payment_tap_publishable_key')
+                            ->label('Publishable Key')
+                            ->helperText('Your Tap publishable key (pk_live_... or pk_test_...)'),
+                    ])->columns(2),
+
+                Forms\Components\Section::make('Tabby Configuration')
+                    ->description('API credentials for Tabby Buy Now Pay Later.')
+                    ->schema([
+                        Forms\Components\Toggle::make('payment_tabby_is_live')
+                            ->label('Live Mode')
+                            ->helperText('Enable to process real payments. Disable for sandbox/testing.')
+                            ->columnSpanFull(),
+
+                        Forms\Components\TextInput::make('payment_tabby_public_key')
+                            ->label('Public Key')
+                            ->helperText('Your Tabby public key'),
+
+                        Forms\Components\TextInput::make('payment_tabby_secret_key')
+                            ->label('Secret Key')
+                            ->password()
+                            ->revealable()
+                            ->helperText('Your Tabby secret key'),
+
+                        Forms\Components\TextInput::make('payment_tabby_merchant_code')
+                            ->label('Merchant Code')
+                            ->helperText('Your Tabby merchant code'),
+                    ])->columns(2),
+
+                Forms\Components\Section::make('Tamara Configuration')
+                    ->description('API credentials for Tamara Buy Now Pay Later.')
+                    ->schema([
+                        Forms\Components\Toggle::make('payment_tamara_is_live')
+                            ->label('Live Mode')
+                            ->helperText('Enable to process real payments. Disable for sandbox/testing.')
+                            ->columnSpanFull(),
+
+                        Forms\Components\TextInput::make('payment_tamara_api_token')
+                            ->label('API Token')
+                            ->password()
+                            ->revealable()
+                            ->helperText('Your Tamara API token'),
+
+                        Forms\Components\TextInput::make('payment_tamara_notification_key')
+                            ->label('Notification Key')
+                            ->password()
+                            ->revealable()
+                            ->helperText('Webhook notification verification key'),
+
+                        Forms\Components\TextInput::make('payment_tamara_merchant_url')
+                            ->label('Merchant URL')
+                            ->url()
+                            ->helperText('Your store URL registered with Tamara'),
                     ])->columns(2),
 
                 Forms\Components\Section::make('Shipping Configuration')
@@ -254,7 +339,7 @@ class ShippingSettings extends Page
         }
 
         Notification::make()
-            ->title('Shipping settings saved successfully')
+            ->title('Payment & delivery settings saved successfully')
             ->success()
             ->send();
     }

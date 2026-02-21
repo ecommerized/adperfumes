@@ -318,11 +318,7 @@ class TamaraPayment
     public function isAvailable(float $amount, string $currency = 'AED'): bool
     {
         if ($currency === 'AED') {
-            $settings = app(\App\Services\SettingsService::class);
-            $min = (float) $settings->get('bnpl_tamara_min_amount', 100);
-            $max = (float) $settings->get('bnpl_tamara_max_amount', 20000);
-
-            return $amount >= $min && $amount <= $max;
+            return $amount >= 100 && $amount <= 20000;
         }
 
         return false;

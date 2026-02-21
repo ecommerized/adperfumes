@@ -253,11 +253,7 @@ class TabbyPayment
     public function isAvailable(float $amount, string $currency = 'AED'): bool
     {
         if ($currency === 'AED') {
-            $settings = app(\App\Services\SettingsService::class);
-            $min = (float) $settings->get('bnpl_tabby_min_amount', 200);
-            $max = (float) $settings->get('bnpl_tabby_max_amount', 10000);
-
-            return $amount >= $min && $amount <= $max;
+            return $amount >= 200 && $amount <= 10000;
         }
 
         return false;
