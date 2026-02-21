@@ -48,6 +48,7 @@ class ShippingSettings extends Page
 
             // Tamara credentials
             'payment_tamara_api_token' => $settings->get('payment_tamara_api_token', ''),
+            'payment_tamara_public_key' => $settings->get('payment_tamara_public_key', ''),
             'payment_tamara_notification_key' => $settings->get('payment_tamara_notification_key', ''),
             'payment_tamara_merchant_url' => $settings->get('payment_tamara_merchant_url', ''),
             'payment_tamara_is_live' => (bool) $settings->get('payment_tamara_is_live', false),
@@ -155,7 +156,11 @@ class ShippingSettings extends Page
                             ->label('API Token')
                             ->password()
                             ->revealable()
-                            ->helperText('Your Tamara API token'),
+                            ->helperText('Your Tamara API token (server-side)'),
+
+                        Forms\Components\TextInput::make('payment_tamara_public_key')
+                            ->label('Public Key')
+                            ->helperText('Your Tamara public key (used for the product page widget)'),
 
                         Forms\Components\TextInput::make('payment_tamara_notification_key')
                             ->label('Notification Key')
