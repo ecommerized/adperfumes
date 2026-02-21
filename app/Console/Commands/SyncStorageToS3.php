@@ -35,7 +35,7 @@ class SyncStorageToS3 extends Command
                 if ($s3->exists($file)) {
                     $skipped++;
                 } else {
-                    $s3->put($file, $local->get($file), 'public');
+                    $s3->put($file, $local->get($file));
                     $uploaded++;
                 }
             } catch (\Throwable $e) {
