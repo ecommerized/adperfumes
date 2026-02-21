@@ -94,7 +94,12 @@
                                     <label for="country" class="block text-[11px] font-semibold text-brand-text uppercase tracking-luxury mb-2">Country *</label>
                                     <select name="country" id="country" required
                                             class="w-full border border-brand-border px-4 py-3 text-[13px] focus:outline-none focus:border-brand-dark transition-colors bg-white">
-                                        <option value="UAE">United Arab Emirates</option>
+                                        <option value="AE" {{ old('country', 'AE') === 'AE' ? 'selected' : '' }}>United Arab Emirates</option>
+                                        <option value="SA" {{ old('country') === 'SA' ? 'selected' : '' }}>Saudi Arabia</option>
+                                        <option value="KW" {{ old('country') === 'KW' ? 'selected' : '' }}>Kuwait</option>
+                                        <option value="QA" {{ old('country') === 'QA' ? 'selected' : '' }}>Qatar</option>
+                                        <option value="BH" {{ old('country') === 'BH' ? 'selected' : '' }}>Bahrain</option>
+                                        <option value="OM" {{ old('country') === 'OM' ? 'selected' : '' }}>Oman</option>
                                     </select>
                                 </div>
                                 <div>

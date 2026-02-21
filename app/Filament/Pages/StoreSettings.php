@@ -28,6 +28,8 @@ class StoreSettings extends Page
             'store_name' => $settings->get('store_name', 'AD Perfumes'),
             'store_logo' => $settings->get('store_logo'),
             'store_favicon' => $settings->get('store_favicon'),
+            'store_currency' => $settings->get('store_currency', 'AED'),
+            'store_country' => $settings->get('store_country', 'AE'),
             'store_support_email' => $settings->get('store_support_email'),
             'store_support_phone' => $settings->get('store_support_phone'),
             'store_whatsapp' => $settings->get('store_whatsapp'),
@@ -64,6 +66,37 @@ class StoreSettings extends Page
                             ->visibility('public')
                             ->helperText('Small icon for browser tab (max 512KB)'),
                     ])->columns(1),
+
+                Forms\Components\Section::make('Region & Currency')
+                    ->schema([
+                        Forms\Components\Select::make('store_country')
+                            ->label('Store Country')
+                            ->options([
+                                'AE' => 'United Arab Emirates',
+                                'SA' => 'Saudi Arabia',
+                                'KW' => 'Kuwait',
+                                'QA' => 'Qatar',
+                                'BH' => 'Bahrain',
+                                'OM' => 'Oman',
+                            ])
+                            ->default('AE')
+                            ->required()
+                            ->helperText('Country where the store operates from'),
+
+                        Forms\Components\Select::make('store_currency')
+                            ->label('Currency')
+                            ->options([
+                                'AED' => 'AED - UAE Dirham',
+                                'SAR' => 'SAR - Saudi Riyal',
+                                'KWD' => 'KWD - Kuwaiti Dinar',
+                                'QAR' => 'QAR - Qatari Riyal',
+                                'BHD' => 'BHD - Bahraini Dinar',
+                                'OMR' => 'OMR - Omani Rial',
+                            ])
+                            ->default('AED')
+                            ->required()
+                            ->helperText('Currency used for product prices and checkout'),
+                    ])->columns(2),
 
                 Forms\Components\Section::make('Contact Information')
                     ->schema([
