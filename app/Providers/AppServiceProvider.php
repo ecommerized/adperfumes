@@ -38,27 +38,45 @@ class AppServiceProvider extends ServiceProvider
 
         // Share store settings with all frontend views
         View::composer('layouts.app', function ($view) {
-            $settings = app(SettingsService::class);
-            $logoPath = $settings->get('store_logo');
-            $faviconPath = $settings->get('store_favicon');
+            try {
+                $settings = app(SettingsService::class);
+                $logoPath = $settings->get('store_logo');
+                $faviconPath = $settings->get('store_favicon');
 
-            $view->with([
-                'storeName' => $settings->get('store_name', 'AD Perfumes'),
-                'storeLogo' => $logoPath ? Storage::url($logoPath) : null,
-                'storeFavicon' => $faviconPath ? Storage::url($faviconPath) : null,
-                // Tracking Pixels
-                'pixelMeta' => $settings->get('pixel_meta'),
-                'pixelTiktok' => $settings->get('pixel_tiktok'),
-                'pixelX' => $settings->get('pixel_x'),
-                'pixelSnapchat' => $settings->get('pixel_snapchat'),
-                'pixelPinterest' => $settings->get('pixel_pinterest'),
-                'pixelLinkedin' => $settings->get('pixel_linkedin'),
-                'pixelGoogleAnalytics' => $settings->get('pixel_google_analytics'),
-                'pixelGtm' => $settings->get('pixel_gtm'),
-                'pixelClarity' => $settings->get('pixel_clarity'),
-                // SEO
-                'googleSiteVerification' => $settings->get('google_site_verification'),
-            ]);
+                $view->with([
+                    'storeName' => $settings->get('store_name', 'AD Perfumes'),
+                    'storeLogo' => $logoPath ? Storage::url($logoPath) : null,
+                    'storeFavicon' => $faviconPath ? Storage::url($faviconPath) : null,
+                    // Tracking Pixels
+                    'pixelMeta' => $settings->get('pixel_meta'),
+                    'pixelTiktok' => $settings->get('pixel_tiktok'),
+                    'pixelX' => $settings->get('pixel_x'),
+                    'pixelSnapchat' => $settings->get('pixel_snapchat'),
+                    'pixelPinterest' => $settings->get('pixel_pinterest'),
+                    'pixelLinkedin' => $settings->get('pixel_linkedin'),
+                    'pixelGoogleAnalytics' => $settings->get('pixel_google_analytics'),
+                    'pixelGtm' => $settings->get('pixel_gtm'),
+                    'pixelClarity' => $settings->get('pixel_clarity'),
+                    // SEO
+                    'googleSiteVerification' => $settings->get('google_site_verification'),
+                ]);
+            } catch (\Throwable $e) {
+                $view->with([
+                    'storeName' => 'AD Perfumes',
+                    'storeLogo' => null,
+                    'storeFavicon' => null,
+                    'pixelMeta' => null,
+                    'pixelTiktok' => null,
+                    'pixelX' => null,
+                    'pixelSnapchat' => null,
+                    'pixelPinterest' => null,
+                    'pixelLinkedin' => null,
+                    'pixelGoogleAnalytics' => null,
+                    'pixelGtm' => null,
+                    'pixelClarity' => null,
+                    'googleSiteVerification' => null,
+                ]);
+            }
         });
     }
 }
